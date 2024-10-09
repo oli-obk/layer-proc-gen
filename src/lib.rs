@@ -31,10 +31,16 @@ pub trait Chunk: Sized {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer;
     /// Width of the chunk
-    const WIDTH: NonZeroUsize;
+    const WIDTH: NonZeroUsize = match NonZeroUsize::new(256) {
+        Some(v) => v,
+        None => unreachable!(),
+    };
     /// Height of the chunk
-    const HEIGHT: NonZeroUsize;
+    const HEIGHT: NonZeroUsize = match NonZeroUsize::new(256) {
+        Some(v) => v,
+        None => unreachable!(),
+    };
 }
 
-mod rolling_grid;
-mod vec2;
+pub mod rolling_grid;
+pub mod vec2;
