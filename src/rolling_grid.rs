@@ -1,13 +1,15 @@
+use std::cell::{Ref, RefCell};
+
 use crate::{vec2::Point2d, Chunk, Layer};
 
 pub struct RollingGrid<L: Layer> {
-    grid: Box<[Cell<L>]>,
+    grid: Box<[RefCell<Cell<L>>]>,
 }
 
 impl<L: Layer> Default for RollingGrid<L> {
     fn default() -> Self {
         Self {
-            grid: std::iter::repeat_with(Cell::default)
+            grid: std::iter::repeat_with(Default::default)
                 .take(usize::from(L::GRID_SIZE.x) * usize::from(L::GRID_SIZE.y))
                 .collect(),
         }
@@ -64,11 +66,16 @@ impl<L: Layer> RollingGrid<L> {
         point.x + point.y * L::Chunk::SIZE.x.get() as usize
     }
 
-    pub fn get(&self, point: Point2d) -> Option<&L::Chunk> {
-        self.grid[Self::index_of_point(point)].get(point)
+    pub fn get(&self, point: Point2d) -> Option<Ref<'_, L::Chunk>> {
+        Ref::filter_map(self.grid[Self::index_of_point(point)].borrow(), |cell| {
+            cell.get(point)
+        })
+        .ok()
     }
 
-    pub fn set(&mut self, point: Point2d, chunk: L::Chunk) {
-        self.grid[Self::index_of_point(point)].set(point, chunk)
+    pub fn set(&self, point: Point2d, chunk: L::Chunk) {
+        self.grid[Self::index_of_point(point)]
+            .borrow_mut()
+            .set(point, chunk)
     }
 }

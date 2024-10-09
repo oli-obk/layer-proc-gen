@@ -14,10 +14,6 @@ impl Layer for TheLayer {
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
     }
-
-    fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self> {
-        &mut self.0
-    }
 }
 
 impl Chunk for TheChunk {
@@ -45,10 +41,6 @@ impl Layer for Player {
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
-    }
-
-    fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self> {
-        &mut self.grid
     }
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
@@ -88,10 +80,6 @@ impl Layer for Map {
         &self.grid
     }
 
-    fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self> {
-        &mut self.grid
-    }
-
     const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
 
     const GRID_OVERLAP: u8 = 1;
@@ -108,33 +96,25 @@ impl Chunk for MapChunk {
 
 #[test]
 fn create_layer() {
-    let mut layer = TheLayer::default();
-    layer
-        .rolling_grid_mut()
-        .set(Point2d { x: 42, y: 99 }, TheChunk);
+    let layer = TheLayer::default();
+    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
 }
 
 #[test]
 #[should_panic]
 fn double_assign_chunk() {
-    let mut layer = TheLayer::default();
-    layer
-        .rolling_grid_mut()
-        .set(Point2d { x: 42, y: 99 }, TheChunk);
-    layer
-        .rolling_grid_mut()
-        .set(Point2d { x: 42, y: 99 }, TheChunk);
+    let layer = TheLayer::default();
+    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
+    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
 }
 
 #[test]
 fn create_player() {
     let the_layer = Arc::new(TheLayer::default());
-    let mut layer = Player::new(the_layer.clone());
+    let layer = Player::new(the_layer.clone());
     layer
-        .rolling_grid_mut()
+        .rolling_grid()
         .set(Point2d { x: 42, y: 99 }, PlayerChunk);
-    let mut layer = Map::new(the_layer);
-    layer
-        .rolling_grid_mut()
-        .set(Point2d { x: 42, y: 99 }, MapChunk);
+    let layer = Map::new(the_layer);
+    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, MapChunk);
 }

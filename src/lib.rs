@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::{num::NonZeroU16, sync::Arc};
+use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::RollingGrid;
 use vec2::Point2d;
@@ -22,10 +22,9 @@ pub trait Layer: Sized {
     const GRID_OVERLAP: u8 = 3;
 
     fn rolling_grid(&self) -> &RollingGrid<Self>;
-    fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self>;
 
     /// Returns the chunk that the position is in and the position within the chunk
-    fn get_chunk_of_grid_point(&self, pos: Point2d) -> Option<(&Self::Chunk, Point2d)> {
+    fn get_chunk_of_grid_point(&self, pos: Point2d) -> Option<(Ref<'_, Self::Chunk>, Point2d)> {
         let chunk_pos = RollingGrid::<Self>::pos_to_grid_pos(pos);
         let chunk = self.rolling_grid().get(chunk_pos)?;
         Some((chunk, RollingGrid::<Self>::pos_within_chunk(chunk_pos, pos)))
