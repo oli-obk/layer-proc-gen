@@ -4,6 +4,16 @@ pub struct RollingGrid<L: Layer> {
     grid: Box<[Cell<L>]>,
 }
 
+impl<L: Layer> Default for RollingGrid<L> {
+    fn default() -> Self {
+        Self {
+            grid: std::iter::repeat_with(Cell::default)
+                .take(L::GRID_WIDTH * L::GRID_HEIGHT)
+                .collect(),
+        }
+    }
+}
+
 impl<L: Layer> RollingGrid<L> {
     #[expect(
         clippy::cast_possible_wrap,
@@ -25,6 +35,16 @@ impl<L: Layer> RollingGrid<L> {
 /// Contains up to `L::OVERLAP` entries
 #[expect(clippy::type_complexity)]
 struct Cell<L: Layer>(Box<[Option<(Point2d, L::Chunk)>]>);
+
+impl<L: Layer> Default for Cell<L> {
+    fn default() -> Self {
+        Self(
+            std::iter::repeat_with(|| None)
+                .take(L::GRID_OVERLAP)
+                .collect(),
+        )
+    }
+}
 
 impl<L: Layer> Cell<L> {
     fn get(&self, index: Point2d) -> Option<&L::Chunk> {
