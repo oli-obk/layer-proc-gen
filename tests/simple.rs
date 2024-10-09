@@ -2,7 +2,7 @@ use std::{num::NonZeroU16, sync::Arc};
 
 use layer_proc_gen::*;
 use rolling_grid::RollingGrid;
-use vec2::Point2d;
+use vec2::{GridBounds, Point2d};
 
 #[derive(Default)]
 struct TheLayer(RollingGrid<Self>);
@@ -14,10 +14,16 @@ impl Layer for TheLayer {
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
     }
+
+    fn ensure_all_deps(&self, _chunk_bounds: GridBounds) {}
 }
 
 impl Chunk for TheChunk {
     type Layer = TheLayer;
+
+    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+        TheChunk
+    }
 }
 
 struct Player {
@@ -46,6 +52,10 @@ impl Layer for Player {
     const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
 
     const GRID_OVERLAP: u8 = 1;
+
+    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
+    }
 }
 
 impl Chunk for PlayerChunk {
@@ -55,6 +65,10 @@ impl Chunk for PlayerChunk {
         Some(v) => Point2d::splat(v),
         None => std::unreachable!(),
     };
+
+    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+        PlayerChunk
+    }
 }
 
 struct Map {
@@ -80,6 +94,10 @@ impl Layer for Map {
         &self.grid
     }
 
+    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
+    }
+
     const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
 
     const GRID_OVERLAP: u8 = 1;
@@ -92,6 +110,10 @@ impl Chunk for MapChunk {
         Some(v) => Point2d::splat(v),
         None => std::unreachable!(),
     };
+
+    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+        MapChunk
+    }
 }
 
 #[test]
@@ -111,10 +133,9 @@ fn double_assign_chunk() {
 #[test]
 fn create_player() {
     let the_layer = Arc::new(TheLayer::default());
-    let layer = Player::new(the_layer.clone());
-    layer
-        .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }, PlayerChunk);
-    let layer = Map::new(the_layer);
-    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, MapChunk);
+    let player = Player::new(the_layer.clone());
+    let player_pos = Point2d { x: 42, y: 99 };
+    player.ensure_loaded_in_bounds(GridBounds::point(player_pos));
+    let map = Map::new(the_layer);
+    map.ensure_loaded_in_bounds(GridBounds::point(player_pos));
 }

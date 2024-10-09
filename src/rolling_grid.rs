@@ -39,16 +39,18 @@ impl<L: Layer> Cell<L> {
             .map(|(_, chunk)| chunk)
     }
 
+    #[track_caller]
     fn set(&mut self, point: Point2d, chunk: L::Chunk) {
         for (p, _) in self.0.iter().flatten() {
             assert_ne!(*p, point);
         }
-        let data = self
-            .0
-            .iter_mut()
-            .find(|o| o.is_none())
-            .expect("overlap exceeded");
-        *data = Some((point, chunk));
+        match self.0.iter_mut().find(|o| o.is_none()) {
+            Some(data) => *data = Some((point, chunk)),
+            None => {
+                let points: Vec<_> = self.0.iter().flatten().map(|&(index, _)| index).collect();
+                panic!("overlap exceeded, could not insert {point:?}, as we already got {points:?}")
+            }
+        }
     }
 }
 
@@ -73,9 +75,16 @@ impl<L: Layer> RollingGrid<L> {
         .ok()
     }
 
+    #[track_caller]
     pub fn set(&self, point: Point2d, chunk: L::Chunk) {
         self.grid[Self::index_of_point(point)]
             .borrow_mut()
             .set(point, chunk)
+    }
+
+    /// Ensure this chunk does not get removed until we request it
+    /// to get removed.
+    pub fn increment_user_count(&self, _point: Point2d) {
+        todo!()
     }
 }

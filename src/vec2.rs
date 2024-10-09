@@ -1,7 +1,10 @@
-use std::num::NonZeroU16;
+use std::{
+    num::NonZeroU16,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Point2d<T: Copy = i64> {
+pub struct Point2d<T = i64> {
     pub x: T,
     pub y: T,
 }
@@ -15,6 +18,25 @@ impl<T: Copy> Point2d<T> {
     /// Basic constructor for when struct constructors are too inconvenient
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
+    }
+}
+
+impl<T: Copy + SubAssign + Mul<Output = T> + Add<Output = T>> Point2d<T> {
+    pub fn dist_squared(self, center: Point2d<T>) -> T {
+        (self - center).len_squared()
+    }
+    pub fn len_squared(self) -> T {
+        let Self { x, y } = self;
+        x * x + y * y
+    }
+}
+
+impl From<Point2d<NonZeroU16>> for Point2d {
+    fn from(value: Point2d<NonZeroU16>) -> Self {
+        Self {
+            x: value.x.get().into(),
+            y: value.y.get().into(),
+        }
     }
 }
 
@@ -49,6 +71,147 @@ impl Point2d<i64> {
     pub const fn mul(mut self, rhs: Point2d<NonZeroU16>) -> Point2d {
         self.x *= rhs.x.get() as i64;
         self.y *= rhs.y.get() as i64;
+        self
+    }
+}
+
+impl<T: MulAssign> Mul<Point2d<T>> for Point2d<T> {
+    type Output = Self;
+    fn mul(mut self, rhs: Point2d<T>) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+impl<T: MulAssign> MulAssign for Point2d<T> {
+    fn mul_assign(&mut self, rhs: Point2d<T>) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+    }
+}
+
+impl<T: DivAssign> Div<Point2d<T>> for Point2d<T> {
+    type Output = Self;
+    fn div(mut self, rhs: Point2d<T>) -> Self::Output {
+        self /= rhs;
+        self
+    }
+}
+impl<T: DivAssign> DivAssign for Point2d<T> {
+    fn div_assign(&mut self, rhs: Point2d<T>) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+    }
+}
+
+impl<T: DivAssign + Copy> Div<T> for Point2d<T> {
+    type Output = Self;
+    fn div(mut self, rhs: T) -> Self::Output {
+        self /= rhs;
+        self
+    }
+}
+impl<T: DivAssign + Copy> DivAssign<T> for Point2d<T> {
+    fn div_assign(&mut self, rhs: T) {
+        self.x /= rhs;
+        self.y /= rhs;
+    }
+}
+
+impl<T: SubAssign> Sub<Point2d<T>> for Point2d<T> {
+    type Output = Self;
+    fn sub(mut self, rhs: Point2d<T>) -> Self::Output {
+        self -= rhs;
+        self
+    }
+}
+impl<T: SubAssign> SubAssign for Point2d<T> {
+    fn sub_assign(&mut self, rhs: Point2d<T>) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl<T: AddAssign> Add<Point2d<T>> for Point2d<T> {
+    type Output = Self;
+    fn add(mut self, rhs: Point2d<T>) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+impl<T: AddAssign> AddAssign for Point2d<T> {
+    fn add_assign(&mut self, rhs: Point2d<T>) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GridBounds<T = i64> {
+    pub min: Point2d<T>,
+    pub max: Point2d<T>,
+}
+
+impl GridBounds {
+    pub fn point(point: Point2d) -> Self {
+        Self {
+            min: point,
+            max: point,
+        }
+    }
+
+    pub fn iter(self) -> impl Iterator<Item = Point2d> {
+        let mut current = self.min;
+        std::iter::from_fn(move || {
+            if current.y == self.max.y {
+                None
+            } else {
+                let item = current;
+                current.x += 1;
+                if current.x == self.max.x {
+                    current.x = self.min.x;
+                    current.y += 1;
+                }
+                Some(item)
+            }
+        })
+    }
+
+    pub fn center(&self) -> Point2d {
+        (self.max - self.min) / 2 + self.min
+    }
+
+    /// Add padding on all sides.
+    pub fn pad(&self, padding: Point2d) -> Self {
+        Self {
+            min: self.min - padding,
+            max: self.max + padding,
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn iter() {
+    let grid = GridBounds {
+        min: Point2d::new(10, 42),
+        max: Point2d::new(13, 44),
+    };
+    let mut iter = grid.iter();
+    assert_eq!(iter.next(), Some(grid.min));
+    assert_eq!(iter.next(), Some(Point2d::new(11, 42)));
+    assert_eq!(iter.next(), Some(Point2d::new(12, 42)));
+    assert_eq!(iter.next(), Some(Point2d::new(10, 43)));
+    assert_eq!(iter.next(), Some(Point2d::new(11, 43)));
+    assert_eq!(iter.next(), Some(Point2d::new(12, 43)));
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.next(), None);
+}
+
+impl<T: DivAssign + Copy> Div<Point2d<T>> for GridBounds<T> {
+    type Output = Self;
+    fn div(mut self, rhs: Point2d<T>) -> Self::Output {
+        self.min /= rhs;
+        self.max /= rhs;
         self
     }
 }
