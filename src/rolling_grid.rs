@@ -30,6 +30,8 @@ impl<L: Layer> RollingGrid<L> {
     const _SMALL_WIDTH: () = { assert!(Self::WIDTH < i16::MAX as i64) };
     const _SMALL_HEIGHT: () = { assert!(Self::HEIGHT < i16::MAX as i64) };
     const _NO_8_BIT_USIZE: () = { assert!(usize::MAX > u8::MAX as usize) };
+    const _SMALL_CHUNK_WIDTH: () = { assert!(L::Chunk::WIDTH.get() < i16::MAX as usize) };
+    const _SMALL_CHUNK_HEIGHT: () = { assert!(L::Chunk::HEIGHT.get() < i16::MAX as usize) };
 }
 
 /// Contains up to `L::OVERLAP` entries
@@ -69,6 +71,36 @@ impl<L: Layer> Cell<L> {
 }
 
 impl<L: Layer> RollingGrid<L> {
+    pub const fn pos_within_chunk(pos: Point2d, chunk_pos: Point2d) -> Point2d {
+        Point2d {
+            #[expect(
+                clippy::cast_possible_wrap,
+                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
+            )]
+            x: pos.x - chunk_pos.x * L::Chunk::WIDTH.get() as i64,
+            #[expect(
+                clippy::cast_possible_wrap,
+                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
+            )]
+            y: pos.y - chunk_pos.y * L::Chunk::HEIGHT.get() as i64,
+        }
+    }
+
+    pub const fn pos_to_grid_pos(pos: Point2d) -> Point2d {
+        Point2d {
+            #[expect(
+                clippy::cast_possible_wrap,
+                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
+            )]
+            x: pos.x.div_euclid(L::Chunk::WIDTH.get() as i64),
+            #[expect(
+                clippy::cast_possible_wrap,
+                reason = "checked with compile time assert _SMALL_CHUNK_HEIGHT"
+            )]
+            y: pos.y.div_euclid(L::Chunk::HEIGHT.get() as i64),
+        }
+    }
+
     const fn index_of_point(point: Point2d) -> usize {
         #[expect(
             clippy::cast_possible_truncation,

@@ -7,6 +7,7 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use rolling_grid::RollingGrid;
+use vec2::Point2d;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Sized {
@@ -24,6 +25,13 @@ pub trait Layer: Sized {
 
     fn rolling_grid(&self) -> &RollingGrid<Self>;
     fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self>;
+
+    /// Returns the chunk that the position is in and the position within the chunk
+    fn get_chunk_of_grid_point(&self, pos: Point2d) -> Option<(&Self::Chunk, Point2d)> {
+        let chunk_pos = RollingGrid::<Self>::pos_to_grid_pos(pos);
+        let chunk = self.rolling_grid().get(chunk_pos)?;
+        Some((chunk, RollingGrid::<Self>::pos_within_chunk(chunk_pos, pos)))
+    }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
