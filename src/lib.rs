@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use rolling_grid::RollingGrid;
 
@@ -24,6 +24,26 @@ pub trait Layer: Sized {
 
     fn rolling_grid(&self) -> &RollingGrid<Self>;
     fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self>;
+}
+
+/// Actual way to access dependency layers. Handles generating and fetching the right blocks.
+// FIXME: use `const PADDING: Point2d`
+/// The Padding is in game coordinates.
+pub struct LayerDependency<
+    L: Layer,
+    const PADDING_X: i64,
+    const PADDING_Y: i64,
+    const LEVEL: u64 = 0,
+> {
+    layer: Arc<L>,
+}
+
+impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64, const LEVEL: u64> From<Arc<L>>
+    for LayerDependency<L, PADDING_X, PADDING_Y, LEVEL>
+{
+    fn from(layer: Arc<L>) -> Self {
+        Self { layer }
+    }
 }
 
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.
