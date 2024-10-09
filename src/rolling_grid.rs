@@ -8,15 +8,10 @@ impl<L: Layer> Default for RollingGrid<L> {
     fn default() -> Self {
         Self {
             grid: std::iter::repeat_with(Cell::default)
-                .take(usize::from(L::GRID_WIDTH) * usize::from(L::GRID_HEIGHT))
+                .take(usize::from(L::GRID_SIZE.x) * usize::from(L::GRID_SIZE.y))
                 .collect(),
         }
     }
-}
-
-impl<L: Layer> RollingGrid<L> {
-    const _SMALL_CHUNK_WIDTH: () = { assert!(L::Chunk::WIDTH.get() < i16::MAX as usize) };
-    const _SMALL_CHUNK_HEIGHT: () = { assert!(L::Chunk::HEIGHT.get() < i16::MAX as usize) };
 }
 
 /// Contains up to `L::OVERLAP` entries
@@ -57,47 +52,16 @@ impl<L: Layer> Cell<L> {
 
 impl<L: Layer> RollingGrid<L> {
     pub const fn pos_within_chunk(pos: Point2d, chunk_pos: Point2d) -> Point2d {
-        Point2d {
-            #[expect(
-                clippy::cast_possible_wrap,
-                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
-            )]
-            x: pos.x - chunk_pos.x * L::Chunk::WIDTH.get() as i64,
-            #[expect(
-                clippy::cast_possible_wrap,
-                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
-            )]
-            y: pos.y - chunk_pos.y * L::Chunk::HEIGHT.get() as i64,
-        }
+        pos.sub(chunk_pos.mul(L::Chunk::SIZE))
     }
 
     pub const fn pos_to_grid_pos(pos: Point2d) -> Point2d {
-        Point2d {
-            #[expect(
-                clippy::cast_possible_wrap,
-                reason = "checked with compile time assert _SMALL_CHUNK_WIDTH"
-            )]
-            x: pos.x.div_euclid(L::Chunk::WIDTH.get() as i64),
-            #[expect(
-                clippy::cast_possible_wrap,
-                reason = "checked with compile time assert _SMALL_CHUNK_HEIGHT"
-            )]
-            y: pos.y.div_euclid(L::Chunk::HEIGHT.get() as i64),
-        }
+        pos.div_euclid(L::Chunk::SIZE)
     }
 
     const fn index_of_point(point: Point2d) -> usize {
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "remainder op with a u8 will alway fit in usize"
-        )]
-        let x = point.x.rem_euclid(L::GRID_WIDTH as i64) as usize;
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "remainder op with a u8 will alway fit in usize"
-        )]
-        let y = point.y.rem_euclid(L::GRID_HEIGHT as i64) as usize;
-        x + y * L::Chunk::WIDTH.get()
+        let point = point.rem_euclid(L::GRID_SIZE);
+        point.x + point.y * L::Chunk::SIZE.x.get() as usize
     }
 
     pub fn get(&self, point: Point2d) -> Option<&L::Chunk> {

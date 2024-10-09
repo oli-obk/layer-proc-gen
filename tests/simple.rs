@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroU16, sync::Arc};
 
 use layer_proc_gen::*;
 use rolling_grid::RollingGrid;
@@ -51,9 +51,7 @@ impl Layer for Player {
         &mut self.grid
     }
 
-    const GRID_HEIGHT: u8 = 1;
-
-    const GRID_WIDTH: u8 = 1;
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
 
     const GRID_OVERLAP: u8 = 1;
 }
@@ -61,13 +59,8 @@ impl Layer for Player {
 impl Chunk for PlayerChunk {
     type Layer = Player;
 
-    const WIDTH: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(1) {
-        Some(v) => v,
-        None => std::unreachable!(),
-    };
-
-    const HEIGHT: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(1) {
-        Some(v) => v,
+    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
+        Some(v) => Point2d::splat(v),
         None => std::unreachable!(),
     };
 }
@@ -99,9 +92,7 @@ impl Layer for Map {
         &mut self.grid
     }
 
-    const GRID_HEIGHT: u8 = 1;
-
-    const GRID_WIDTH: u8 = 1;
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
 
     const GRID_OVERLAP: u8 = 1;
 }
@@ -109,13 +100,8 @@ impl Layer for Map {
 impl Chunk for MapChunk {
     type Layer = Map;
 
-    const WIDTH: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(1) {
-        Some(v) => v,
-        None => std::unreachable!(),
-    };
-
-    const HEIGHT: std::num::NonZeroUsize = match std::num::NonZeroUsize::new(1) {
-        Some(v) => v,
+    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
+        Some(v) => Point2d::splat(v),
         None => std::unreachable!(),
     };
 }

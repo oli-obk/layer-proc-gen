@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroU16, sync::Arc};
 
 use rolling_grid::RollingGrid;
 use vec2::Point2d;
@@ -15,9 +15,7 @@ pub trait Layer: Sized {
     type Chunk: Chunk;
 
     /// Internal `RollingGrid` size.
-    const GRID_HEIGHT: u8 = 32;
-    /// Internal `RollingGrid` size.
-    const GRID_WIDTH: u8 = 32;
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(32);
     /// Internal `RollingGrid` overlap before the system panics. Basically scales the grid width/height by
     /// this number to allow moving across the grid width/height boundaries completely transparently.
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
@@ -53,14 +51,9 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
 pub trait Chunk: Sized {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer;
-    /// Width of the chunk
-    const WIDTH: NonZeroUsize = match NonZeroUsize::new(256) {
-        Some(v) => v,
-        None => unreachable!(),
-    };
-    /// Height of the chunk
-    const HEIGHT: NonZeroUsize = match NonZeroUsize::new(256) {
-        Some(v) => v,
+    /// Width and height of the chunk
+    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256) {
+        Some(v) => Point2d::splat(v),
         None => unreachable!(),
     };
 }
