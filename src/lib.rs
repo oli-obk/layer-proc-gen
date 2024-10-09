@@ -15,13 +15,13 @@ pub trait Layer: Sized {
     type Chunk: Chunk;
 
     /// Internal `RollingGrid` size.
-    const GRID_HEIGHT: usize = 32;
+    const GRID_HEIGHT: u8 = 32;
     /// Internal `RollingGrid` size.
-    const GRID_WIDTH: usize = 32;
+    const GRID_WIDTH: u8 = 32;
     /// Internal `RollingGrid` overlap before the system panics. Basically scales the grid width/height by
     /// this number to allow moving across the grid width/height boundaries completely transparently.
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
-    const GRID_OVERLAP: usize = 3;
+    const GRID_OVERLAP: u8 = 3;
 
     fn rolling_grid(&self) -> &RollingGrid<Self>;
     fn rolling_grid_mut(&mut self) -> &mut RollingGrid<Self>;

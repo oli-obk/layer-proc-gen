@@ -51,11 +51,11 @@ impl Layer for Player {
         &mut self.grid
     }
 
-    const GRID_HEIGHT: usize = 1;
+    const GRID_HEIGHT: u8 = 1;
 
-    const GRID_WIDTH: usize = 1;
+    const GRID_WIDTH: u8 = 1;
 
-    const GRID_OVERLAP: usize = 1;
+    const GRID_OVERLAP: u8 = 1;
 }
 
 impl Chunk for PlayerChunk {
@@ -99,11 +99,11 @@ impl Layer for Map {
         &mut self.grid
     }
 
-    const GRID_HEIGHT: usize = 1;
+    const GRID_HEIGHT: u8 = 1;
 
-    const GRID_WIDTH: usize = 1;
+    const GRID_WIDTH: u8 = 1;
 
-    const GRID_OVERLAP: usize = 1;
+    const GRID_OVERLAP: u8 = 1;
 }
 
 impl Chunk for MapChunk {
