@@ -47,47 +47,47 @@ impl<L: Layer> Default for Cell<L> {
 }
 
 impl<L: Layer> Cell<L> {
-    fn get(&self, index: Point2d) -> Option<&L::Chunk> {
+    fn get(&self, point: Point2d) -> Option<&L::Chunk> {
         self.0
             .iter()
             .filter_map(|e| e.as_ref())
-            .find(|(p, _)| *p == index)
+            .find(|(p, _)| *p == point)
             .map(|(_, chunk)| chunk)
     }
 
-    fn set(&mut self, index: Point2d, chunk: L::Chunk) {
+    fn set(&mut self, point: Point2d, chunk: L::Chunk) {
         for (p, _) in self.0.iter().flatten() {
-            assert_ne!(*p, index);
+            assert_ne!(*p, point);
         }
         let data = self
             .0
             .iter_mut()
             .find(|o| o.is_none())
             .expect("overlap exceeded");
-        *data = Some((index, chunk));
+        *data = Some((point, chunk));
     }
 }
 
 impl<L: Layer> RollingGrid<L> {
-    const fn pos(index: Point2d) -> usize {
+    const fn index_of_point(point: Point2d) -> usize {
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked with compile time assert _SMALL_WIDTH"
         )]
-        let x = index.x.rem_euclid(Self::WIDTH) as usize;
+        let x = point.x.rem_euclid(Self::WIDTH) as usize;
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked with compile time assert _SMALL_HEIGHT"
         )]
-        let y = index.y.rem_euclid(Self::HEIGHT) as usize;
+        let y = point.y.rem_euclid(Self::HEIGHT) as usize;
         x + y * L::Chunk::WIDTH.get()
     }
 
-    pub fn get(&self, index: Point2d) -> Option<&L::Chunk> {
-        self.grid[Self::pos(index)].get(index)
+    pub fn get(&self, point: Point2d) -> Option<&L::Chunk> {
+        self.grid[Self::index_of_point(point)].get(point)
     }
 
-    pub fn set(&mut self, index: Point2d, chunk: L::Chunk) {
-        self.grid[Self::pos(index)].set(index, chunk)
+    pub fn set(&mut self, point: Point2d, chunk: L::Chunk) {
+        self.grid[Self::index_of_point(point)].set(point, chunk)
     }
 }
