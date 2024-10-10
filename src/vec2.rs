@@ -152,6 +152,7 @@ impl<T: AddAssign> AddAssign for Point2d<T> {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+/// A rectangle that includes the minimum and maximum values
 pub struct GridBounds<T = i64> {
     pub min: Point2d<T>,
     pub max: Point2d<T>,
@@ -159,7 +160,7 @@ pub struct GridBounds<T = i64> {
 
 impl<T: std::fmt::Debug> std::fmt::Debug for GridBounds<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}..{:?}", self.min, self.max)
+        write!(f, "{:?}..={:?}", self.min, self.max)
     }
 }
 
@@ -167,19 +168,19 @@ impl GridBounds {
     pub fn point(point: Point2d) -> Self {
         Self {
             min: point,
-            max: point + Point2d { x: 1, y: 1 },
+            max: point,
         }
     }
 
     pub fn iter(self) -> impl Iterator<Item = Point2d> {
         let mut current = self.min;
         std::iter::from_fn(move || {
-            if current.y == self.max.y {
+            if current.y > self.max.y {
                 None
             } else {
                 let item = current;
                 current.x += 1;
-                if current.x == self.max.x {
+                if current.x > self.max.x {
                     current.x = self.min.x;
                     current.y += 1;
                 }
@@ -206,7 +207,7 @@ impl GridBounds {
 fn iter() {
     let grid = GridBounds {
         min: Point2d::new(10, 42),
-        max: Point2d::new(13, 44),
+        max: Point2d::new(12, 43),
     };
     let mut iter = grid.iter();
     assert_eq!(iter.next(), Some(grid.min));
