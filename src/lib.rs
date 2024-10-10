@@ -7,7 +7,7 @@
 use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::RollingGrid;
-use tracing::{instrument, trace};
+use tracing::{debug_span, instrument, trace};
 use vec2::{GridBounds, Point2d};
 
 /// Each layer stores a RollingGrid of corresponding chunks.
@@ -54,8 +54,11 @@ pub trait Layer: Sized {
     fn create_and_register_chunk(&self, index: Point2d) {
         self.ensure_chunk_providers(index);
 
-        self.rolling_grid()
-            .set(index, || Self::Chunk::compute(self, index))
+        self.rolling_grid().set(index, || {
+            let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
+            let _guard = span.enter();
+            Self::Chunk::compute(self, index)
+        })
     }
 
     /// Load a single chunks' dependencies.
