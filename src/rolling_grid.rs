@@ -1,6 +1,9 @@
 use std::cell::{Ref, RefCell};
 
-use crate::{vec2::Point2d, Chunk, Layer};
+use crate::{
+    vec2::{GridBounds, Point2d},
+    Chunk, Layer,
+};
 
 pub struct RollingGrid<L: Layer> {
     grid: Box<[RefCell<Cell<L>>]>,
@@ -94,12 +97,20 @@ impl<L: Layer> RollingGrid<L> {
         Ref::filter_map(self.access(pos).borrow(), |cell| cell.get(pos)).ok()
     }
 
+    pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Option<Ref<'_, L::Chunk>>> {
+        range.iter().map(|point| self.get(point))
+    }
+
     #[track_caller]
     pub fn set(&self, pos: Point2d, chunk: impl FnOnce() -> L::Chunk) {
         self.access(pos).borrow_mut().set(pos, chunk)
     }
 
+    #[track_caller]
     fn access(&self, pos: Point2d) -> &RefCell<Cell<L>> {
-        &self.grid[Self::index_of_point(pos)]
+        self
+            .grid
+            .get(Self::index_of_point(pos))
+            .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
     }
 }

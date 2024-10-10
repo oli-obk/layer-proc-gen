@@ -83,6 +83,30 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         let required_bounds = chunk_bounds.pad(Point2d::new(PADDING_X, PADDING_Y));
         self.layer.ensure_loaded_in_bounds(required_bounds);
     }
+
+    /// Get a chunk or panic if it was not loaded previously
+    pub fn get(&self, index: Point2d) -> Ref<'_, L::Chunk> {
+        self.layer.rolling_grid().get(index).unwrap_or_else(|| {
+            panic!(
+                "chunk at {index:?} is not yet loaded in {}",
+                std::any::type_name::<L>()
+            )
+        })
+    }
+
+    pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+        self.layer
+            .rolling_grid()
+            .get_range(range)
+            .map(move |chunk| {
+                chunk.unwrap_or_else(|| {
+                    panic!(
+                        "a chunk in {range:?} is not yet loaded in {}",
+                        std::any::type_name::<L>()
+                    )
+                })
+            })
+    }
 }
 
 impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
