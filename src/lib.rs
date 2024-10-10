@@ -12,7 +12,7 @@ use vec2::Point2d;
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Sized {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
-    type Chunk: Chunk;
+    type Chunk: Chunk<Layer = Self>;
 
     /// Internal `RollingGrid` size.
     const GRID_SIZE: Point2d<u8> = Point2d::splat(32);
@@ -50,7 +50,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.
 pub trait Chunk: Sized {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
-    type Layer: Layer;
+    type Layer: Layer<Chunk = Self>;
     /// Width and height of the chunk
     const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256) {
         Some(v) => Point2d::splat(v),
