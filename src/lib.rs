@@ -34,7 +34,7 @@ pub trait Layer: Sized {
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
     #[track_caller]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
     fn ensure_loaded_in_bounds(&self, bounds: GridBounds<i64>) {
         let indices = bounds / Self::Chunk::SIZE.into();
         trace!(?indices);
@@ -50,7 +50,7 @@ pub trait Layer: Sized {
 
     /// Load a single chunk.
     #[track_caller]
-    #[instrument(level = "trace", skip(self))]
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
     fn create_and_register_chunk(&self, index: Point2d) {
         self.ensure_chunk_providers(index);
 
@@ -64,6 +64,7 @@ pub trait Layer: Sized {
     }
 
     /// Load a single chunks' dependencies.
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
     fn ensure_chunk_providers(&self, index: Point2d) {
         let chunk_bounds = Self::Chunk::bounds(index);
         self.ensure_all_deps(chunk_bounds);

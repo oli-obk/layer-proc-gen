@@ -3,10 +3,16 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
 };
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point2d<T = i64> {
     pub x: T,
     pub y: T,
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        (&self.x, &self.y).fmt(f)
+    }
 }
 
 impl<T: Copy> Point2d<T> {
@@ -145,17 +151,23 @@ impl<T: AddAssign> AddAssign for Point2d<T> {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GridBounds<T = i64> {
     pub min: Point2d<T>,
     pub max: Point2d<T>,
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for GridBounds<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}..{:?}", self.min, self.max)
+    }
 }
 
 impl GridBounds {
     pub fn point(point: Point2d) -> Self {
         Self {
             min: point,
-            max: point,
+            max: point + Point2d { x: 1, y: 1 },
         }
     }
 
@@ -203,6 +215,16 @@ fn iter() {
     assert_eq!(iter.next(), Some(Point2d::new(10, 43)));
     assert_eq!(iter.next(), Some(Point2d::new(11, 43)));
     assert_eq!(iter.next(), Some(Point2d::new(12, 43)));
+    assert_eq!(iter.next(), None);
+    assert_eq!(iter.next(), None);
+}
+
+#[cfg(test)]
+#[test]
+fn iter_point() {
+    let grid = GridBounds::point(Point2d::new(10, 42));
+    let mut iter = grid.iter();
+    assert_eq!(iter.next(), Some(grid.min));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
 }
