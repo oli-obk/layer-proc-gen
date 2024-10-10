@@ -1,3 +1,10 @@
+use rand::{
+    distributions::{
+        uniform::{SampleRange, SampleUniform},
+        Standard,
+    },
+    prelude::*,
+};
 use std::{
     num::NonZeroU16,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
@@ -12,6 +19,18 @@ pub struct Point2d<T = i64> {
 impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         (&self.x, &self.y).fmt(f)
+    }
+}
+
+impl<T> Distribution<Point2d<T>> for Standard
+where
+    Standard: Distribution<T>,
+{
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Point2d<T> {
+        Point2d {
+            x: self.sample(rng),
+            y: self.sample(rng),
+        }
     }
 }
 
@@ -79,6 +98,25 @@ impl Point2d<i64> {
         self.y *= rhs.y.get() as i64;
         self
     }
+
+    pub fn to_ne_bytes(&self) -> [u8; 16] {
+        let mut array = [0; 16];
+        for (dest, src) in array
+            .iter_mut()
+            .zip(self.x.to_ne_bytes().into_iter().chain(self.y.to_ne_bytes()))
+        {
+            *dest = src;
+        }
+        array
+    }
+}
+
+#[test]
+fn rem_euclid() {
+    assert_eq!(
+        Point2d { x: -3_i64, y: -3 }.rem_euclid(Point2d { x: 16, y: 16 }),
+        Point2d { x: 13, y: 13 }
+    );
 }
 
 impl<T: MulAssign> Mul<Point2d<T>> for Point2d<T> {
@@ -161,6 +199,15 @@ pub struct GridBounds<T = i64> {
 impl<T: std::fmt::Debug> std::fmt::Debug for GridBounds<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}..={:?}", self.min, self.max)
+    }
+}
+
+impl<T: Copy + PartialEq + PartialOrd + SampleUniform> GridBounds<T> {
+    pub fn sample<R: RngCore + ?Sized>(self, rng: &mut R) -> Point2d<T> {
+        Point2d {
+            x: (self.min.x..self.max.x).sample_single(rng),
+            y: (self.min.y..self.max.y).sample_single(rng),
+        }
     }
 }
 
