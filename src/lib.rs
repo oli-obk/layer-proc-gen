@@ -81,8 +81,12 @@ pub struct LayerDependency<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
 impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     LayerDependency<L, PADDING_X, PADDING_Y>
 {
+    pub const fn padding(&self) -> Point2d {
+        Point2d::new(PADDING_X, PADDING_Y)
+    }
+
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: GridBounds) {
-        let required_bounds = chunk_bounds.pad(Point2d::new(PADDING_X, PADDING_Y));
+        let required_bounds = chunk_bounds.pad(self.padding());
         self.layer.ensure_loaded_in_bounds(required_bounds);
     }
 
@@ -98,6 +102,13 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
 
     pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         let range = L::Chunk::bounds_to_grid(range);
+        self.get_grid_range(range)
+    }
+
+    pub fn get_grid_range(
+        &self,
+        range: GridBounds<GridIndex>,
+    ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         self.layer
             .rolling_grid()
             .get_range(range)
@@ -149,7 +160,7 @@ pub trait Chunk: Sized {
 
     /// Get the grid the position is in
     fn pos_to_grid(point: Point2d) -> GridPoint {
-        (point / Point2d::from(Self::SIZE)).map(GridIndex)
+        point.div_euclid(Self::SIZE).map(GridIndex)
     }
 }
 
