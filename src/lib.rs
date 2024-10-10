@@ -7,6 +7,7 @@
 use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::RollingGrid;
+use tracing::{instrument, trace};
 use vec2::{GridBounds, Point2d};
 
 /// Each layer stores a RollingGrid of corresponding chunks.
@@ -33,8 +34,10 @@ pub trait Layer: Sized {
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
     #[track_caller]
+    #[instrument(level = "trace", skip(self))]
     fn ensure_loaded_in_bounds(&self, bounds: GridBounds<i64>) {
         let indices = bounds / Self::Chunk::SIZE.into();
+        trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
         let center = bounds.center();
         // Sort by distance to center, so we load the closest ones first
@@ -47,6 +50,7 @@ pub trait Layer: Sized {
 
     /// Load a single chunk.
     #[track_caller]
+    #[instrument(level = "trace", skip(self))]
     fn create_and_register_chunk(&self, index: Point2d) {
         self.ensure_chunk_providers(index);
 

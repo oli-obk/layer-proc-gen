@@ -4,6 +4,18 @@ use layer_proc_gen::*;
 use rolling_grid::RollingGrid;
 use vec2::{GridBounds, Point2d};
 
+fn init_tracing() {
+    use tracing_subscriber::layer::SubscriberExt as _;
+    let subscriber = tracing_subscriber::Registry::default().with(
+        tracing_tree::HierarchicalLayer::new(2)
+            .with_indent_lines(true)
+            .with_bracketed_fields(true)
+            .with_targets(true),
+    );
+    tracing::subscriber::set_global_default(subscriber).unwrap();
+    eprintln!();
+}
+
 #[derive(Default)]
 struct TheLayer(RollingGrid<Self>);
 struct TheChunk;
@@ -132,6 +144,7 @@ fn double_assign_chunk() {
 
 #[test]
 fn create_player() {
+    init_tracing();
     let the_layer = Arc::new(TheLayer::default());
     let player = Player::new(the_layer.clone());
     let player_pos = Point2d { x: 42, y: 99 };
