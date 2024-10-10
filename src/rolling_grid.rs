@@ -17,8 +17,12 @@ impl<L: Layer> Default for RollingGrid<L> {
 }
 
 /// Contains up to `L::OVERLAP` entries
-#[expect(clippy::type_complexity)]
-struct Cell<L: Layer>(Box<[Option<(Point2d, L::Chunk)>]>);
+struct Cell<L: Layer>(Box<[Option<ActiveCell<L>>]>);
+
+struct ActiveCell<L: Layer> {
+    pos: Point2d,
+    chunk: L::Chunk,
+}
 
 impl<L: Layer> Default for Cell<L> {
     fn default() -> Self {
@@ -35,20 +39,20 @@ impl<L: Layer> Cell<L> {
         self.0
             .iter()
             .filter_map(|e| e.as_ref())
-            .find(|(p, _)| *p == point)
-            .map(|(_, chunk)| chunk)
+            .find(|c| c.pos == point)
+            .map(|c| &c.chunk)
     }
 
     #[track_caller]
-    fn set(&mut self, point: Point2d, chunk: L::Chunk) {
-        for (p, _) in self.0.iter().flatten() {
-            assert_ne!(*p, point);
+    fn set(&mut self, pos: Point2d, chunk: L::Chunk) {
+        for p in self.0.iter().flatten() {
+            assert_ne!(p.pos, pos);
         }
         match self.0.iter_mut().find(|o| o.is_none()) {
-            Some(data) => *data = Some((point, chunk)),
+            Some(data) => *data = Some(ActiveCell { pos, chunk }),
             None => {
-                let points: Vec<_> = self.0.iter().flatten().map(|&(index, _)| index).collect();
-                panic!("overlap exceeded, could not insert {point:?}, as we already got {points:?}")
+                let points: Vec<_> = self.0.iter().flatten().map(|c| c.pos).collect();
+                panic!("overlap exceeded, could not insert {pos:?}, as we already got {points:?}")
             }
         }
     }
