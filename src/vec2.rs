@@ -1,3 +1,4 @@
+use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use rand::{
     distributions::{
         uniform::{SampleRange, SampleUniform},
@@ -7,10 +8,29 @@ use rand::{
 };
 use std::{
     num::NonZeroU16,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, Div, DivAssign, Mul, Sub},
 };
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    AddAssign,
+    Add,
+    Mul,
+    MulAssign,
+    Sub,
+    SubAssign,
+    Div,
+    DivAssign,
+)]
+#[mul(forward)]
+#[div(forward)]
+#[mul_assign(forward)]
+#[div_assign(forward)]
 pub struct Point2d<T = i64> {
     pub x: T,
     pub y: T,
@@ -46,7 +66,7 @@ impl<T: Copy> Point2d<T> {
     }
 }
 
-impl<T: Copy + SubAssign + Mul<Output = T> + Add<Output = T>> Point2d<T> {
+impl<T: Copy + Sub<Output = T> + Mul<Output = T> + Add<Output = T>> Point2d<T> {
     pub fn dist_squared(self, center: Point2d<T>) -> T {
         (self - center).len_squared()
     }
@@ -119,34 +139,6 @@ fn rem_euclid() {
     );
 }
 
-impl<T: MulAssign> Mul<Point2d<T>> for Point2d<T> {
-    type Output = Self;
-    fn mul(mut self, rhs: Point2d<T>) -> Self::Output {
-        self *= rhs;
-        self
-    }
-}
-impl<T: MulAssign> MulAssign for Point2d<T> {
-    fn mul_assign(&mut self, rhs: Point2d<T>) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-    }
-}
-
-impl<T: DivAssign> Div<Point2d<T>> for Point2d<T> {
-    type Output = Self;
-    fn div(mut self, rhs: Point2d<T>) -> Self::Output {
-        self /= rhs;
-        self
-    }
-}
-impl<T: DivAssign> DivAssign for Point2d<T> {
-    fn div_assign(&mut self, rhs: Point2d<T>) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-    }
-}
-
 impl<T: DivAssign + Copy> Div<T> for Point2d<T> {
     type Output = Self;
     fn div(mut self, rhs: T) -> Self::Output {
@@ -154,38 +146,11 @@ impl<T: DivAssign + Copy> Div<T> for Point2d<T> {
         self
     }
 }
+
 impl<T: DivAssign + Copy> DivAssign<T> for Point2d<T> {
     fn div_assign(&mut self, rhs: T) {
         self.x /= rhs;
         self.y /= rhs;
-    }
-}
-
-impl<T: SubAssign> Sub<Point2d<T>> for Point2d<T> {
-    type Output = Self;
-    fn sub(mut self, rhs: Point2d<T>) -> Self::Output {
-        self -= rhs;
-        self
-    }
-}
-impl<T: SubAssign> SubAssign for Point2d<T> {
-    fn sub_assign(&mut self, rhs: Point2d<T>) {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
-    }
-}
-
-impl<T: AddAssign> Add<Point2d<T>> for Point2d<T> {
-    type Output = Self;
-    fn add(mut self, rhs: Point2d<T>) -> Self::Output {
-        self += rhs;
-        self
-    }
-}
-impl<T: AddAssign> AddAssign for Point2d<T> {
-    fn add_assign(&mut self, rhs: Point2d<T>) {
-        self.x += rhs.x;
-        self.y += rhs.y;
     }
 }
 
