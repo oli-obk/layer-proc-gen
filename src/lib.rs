@@ -52,11 +52,10 @@ pub trait Layer: Sized {
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
     fn create_and_register_chunk(&self, index: Point2d) {
-        self.ensure_chunk_providers(index);
-
         self.rolling_grid().set(index, || {
             let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
             let _guard = span.enter();
+            self.ensure_chunk_providers(index);
             Self::Chunk::compute(self, index)
         })
     }
