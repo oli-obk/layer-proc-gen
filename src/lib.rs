@@ -96,10 +96,8 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         })
     }
 
-    pub fn get_range(
-        &self,
-        range: GridBounds<GridIndex>,
-    ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+        let range = L::Chunk::bounds_to_grid(range);
         self.layer
             .rolling_grid()
             .get_range(range)
