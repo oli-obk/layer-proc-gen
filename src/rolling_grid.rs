@@ -87,7 +87,7 @@ impl<L: Layer> RollingGrid<L> {
 
     const fn index_of_point(point: Point2d) -> usize {
         let point = point.rem_euclid(L::GRID_SIZE);
-        point.x + point.y * L::Chunk::SIZE.x.get() as usize
+        point.x + point.y * L::GRID_SIZE.x as usize
     }
 
     pub fn get(&self, pos: Point2d) -> Option<Ref<'_, L::Chunk>> {
