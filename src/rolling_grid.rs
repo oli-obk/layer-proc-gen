@@ -22,6 +22,7 @@ struct Cell<L: Layer>(Box<[Option<ActiveCell<L>>]>);
 struct ActiveCell<L: Layer> {
     pos: Point2d,
     chunk: L::Chunk,
+    user_count: usize,
 }
 
 impl<L: Layer> Default for Cell<L> {
@@ -35,6 +36,15 @@ impl<L: Layer> Default for Cell<L> {
 }
 
 impl<L: Layer> Cell<L> {
+    fn increment_user_count(&mut self, pos: Point2d) {
+        self.0
+            .iter_mut()
+            .flatten()
+            .find(|c| c.pos == pos)
+            .unwrap()
+            .user_count += 1
+    }
+
     fn get(&self, point: Point2d) -> Option<&L::Chunk> {
         self.0
             .iter()
@@ -49,7 +59,13 @@ impl<L: Layer> Cell<L> {
             assert_ne!(p.pos, pos);
         }
         match self.0.iter_mut().find(|o| o.is_none()) {
-            Some(data) => *data = Some(ActiveCell { pos, chunk }),
+            Some(data) => {
+                *data = Some(ActiveCell {
+                    pos,
+                    chunk,
+                    user_count: 0,
+                })
+            }
             None => {
                 let points: Vec<_> = self.0.iter().flatten().map(|c| c.pos).collect();
                 panic!("overlap exceeded, could not insert {pos:?}, as we already got {points:?}")
@@ -83,8 +99,8 @@ impl<L: Layer> RollingGrid<L> {
 
     /// Ensure this chunk does not get removed until we request it
     /// to get removed.
-    pub fn increment_user_count(&self, _point: Point2d) {
-        todo!()
+    pub fn increment_user_count(&self, pos: Point2d) {
+        self.access(pos).borrow_mut().increment_user_count(pos)
     }
 
     fn access(&self, pos: Point2d) -> &RefCell<Cell<L>> {
