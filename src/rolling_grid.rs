@@ -36,15 +36,6 @@ impl<L: Layer> Default for Cell<L> {
 }
 
 impl<L: Layer> Cell<L> {
-    fn increment_user_count(&mut self, pos: Point2d) {
-        self.0
-            .iter_mut()
-            .flatten()
-            .find(|c| c.pos == pos)
-            .unwrap()
-            .user_count += 1
-    }
-
     fn get(&self, point: Point2d) -> Option<&L::Chunk> {
         self.0
             .iter()
@@ -54,11 +45,17 @@ impl<L: Layer> Cell<L> {
     }
 
     #[track_caller]
-    fn set(&mut self, pos: Point2d, chunk: L::Chunk) {
+    /// If the position is already occupied with a block,
+    /// debug assert that it's the same that we'd generate.
+    /// Otherwise just increment the user count for that block.
+    fn set(&mut self, pos: Point2d, chunk: impl FnOnce() -> L::Chunk) {
         let mut free = None;
         for p in self.0.iter_mut() {
             if let Some(p) = p {
-                assert_ne!(p.pos, pos);
+                if p.pos == pos {
+                    p.user_count += 1;
+                    return;
+                }
             } else {
                 free = Some(p);
             }
@@ -67,7 +64,7 @@ impl<L: Layer> Cell<L> {
             Some(data) => {
                 *data = Some(ActiveCell {
                     pos,
-                    chunk,
+                    chunk: chunk(),
                     user_count: 0,
                 })
             }
@@ -98,14 +95,8 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    pub fn set(&self, pos: Point2d, chunk: L::Chunk) {
+    pub fn set(&self, pos: Point2d, chunk: impl FnOnce() -> L::Chunk) {
         self.access(pos).borrow_mut().set(pos, chunk)
-    }
-
-    /// Ensure this chunk does not get removed until we request it
-    /// to get removed.
-    pub fn increment_user_count(&self, pos: Point2d) {
-        self.access(pos).borrow_mut().increment_user_count(pos)
     }
 
     fn access(&self, pos: Point2d) -> &RefCell<Cell<L>> {

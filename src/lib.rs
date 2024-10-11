@@ -54,13 +54,8 @@ pub trait Layer: Sized {
     fn create_and_register_chunk(&self, index: Point2d) {
         self.ensure_chunk_providers(index);
 
-        // FIXME: Make the "exists + increment" logic a single operation
-        if self.rolling_grid().get(index).is_some() {
-            self.rolling_grid().increment_user_count(index);
-        } else {
-            self.rolling_grid()
-                .set(index, Self::Chunk::compute(self, index))
-        }
+        self.rolling_grid()
+            .set(index, || Self::Chunk::compute(self, index))
     }
 
     /// Load a single chunks' dependencies.
