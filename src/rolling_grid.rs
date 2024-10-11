@@ -55,10 +55,15 @@ impl<L: Layer> Cell<L> {
 
     #[track_caller]
     fn set(&mut self, pos: Point2d, chunk: L::Chunk) {
-        for p in self.0.iter().flatten() {
-            assert_ne!(p.pos, pos);
+        let mut free = None;
+        for p in self.0.iter_mut() {
+            if let Some(p) = p {
+                assert_ne!(p.pos, pos);
+            } else {
+                free = Some(p);
+            }
         }
-        match self.0.iter_mut().find(|o| o.is_none()) {
+        match free {
             Some(data) => {
                 *data = Some(ActiveCell {
                     pos,
