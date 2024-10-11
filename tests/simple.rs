@@ -18,7 +18,8 @@ fn init_tracing() {
 
 #[derive(Default)]
 struct TheLayer(RollingGrid<Self>);
-struct TheChunk;
+#[expect(dead_code)]
+struct TheChunk(usize);
 
 impl Layer for TheLayer {
     type Chunk = TheChunk;
@@ -34,7 +35,7 @@ impl Chunk for TheChunk {
     type Layer = TheLayer;
 
     fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
-        TheChunk
+        TheChunk(0)
     }
 }
 
@@ -131,15 +132,21 @@ impl Chunk for MapChunk {
 #[test]
 fn create_layer() {
     let layer = TheLayer::default();
-    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
+    layer
+        .rolling_grid()
+        .set(Point2d { x: 42, y: 99 }, TheChunk(0));
 }
 
 #[test]
 #[should_panic]
 fn double_assign_chunk() {
     let layer = TheLayer::default();
-    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
-    layer.rolling_grid().set(Point2d { x: 42, y: 99 }, TheChunk);
+    layer
+        .rolling_grid()
+        .set(Point2d { x: 42, y: 99 }, TheChunk(0));
+    layer
+        .rolling_grid()
+        .set(Point2d { x: 42, y: 99 }, TheChunk(1));
 }
 
 #[test]
