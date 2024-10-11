@@ -6,7 +6,7 @@
 
 use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
-use rolling_grid::RollingGrid;
+use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{debug_span, instrument, trace};
 use vec2::{GridBounds, Point2d};
 
@@ -28,7 +28,7 @@ pub trait Layer: Sized {
     fn get_chunk_of_grid_point(&self, pos: Point2d) -> Option<(Ref<'_, Self::Chunk>, Point2d)> {
         let chunk_pos = RollingGrid::<Self>::pos_to_grid_pos(pos);
         let chunk = self.rolling_grid().get(chunk_pos)?;
-        Some((chunk, RollingGrid::<Self>::pos_within_chunk(chunk_pos, pos)))
+        Some((chunk, RollingGrid::<Self>::pos_within_chunk(pos, chunk_pos)))
     }
 
     /// Load all dependencies' chunks and then compute our chunks.
@@ -36,13 +36,13 @@ pub trait Layer: Sized {
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
     fn ensure_loaded_in_bounds(&self, bounds: GridBounds<i64>) {
-        let indices = bounds / Self::Chunk::SIZE.into();
+        let indices = Self::Chunk::bounds_to_grid(bounds);
         trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
-        let center = bounds.center();
+        let center = indices.center();
         // Sort by distance to center, so we load the closest ones first
-        create_indices
-            .sort_by_cached_key(|&index| (index * Self::Chunk::SIZE.into()).dist_squared(center));
+        // Difference to
+        create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
         for index in create_indices {
             self.create_and_register_chunk(index);
         }
@@ -51,7 +51,7 @@ pub trait Layer: Sized {
     /// Load a single chunk.
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn create_and_register_chunk(&self, index: Point2d) {
+    fn create_and_register_chunk(&self, index: GridPoint) {
         self.rolling_grid().set(index, || {
             let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
             let _guard = span.enter();
@@ -62,7 +62,7 @@ pub trait Layer: Sized {
 
     /// Load a single chunks' dependencies.
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_chunk_providers(&self, index: Point2d) {
+    fn ensure_chunk_providers(&self, index: GridPoint) {
         let chunk_bounds = Self::Chunk::bounds(index);
         self.ensure_all_deps(chunk_bounds);
     }
@@ -87,7 +87,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 
     /// Get a chunk or panic if it was not loaded previously
-    pub fn get(&self, index: Point2d) -> Ref<'_, L::Chunk> {
+    pub fn get(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
         self.layer.rolling_grid().get(index).unwrap_or_else(|| {
             panic!(
                 "chunk at {index:?} is not yet loaded in {}",
@@ -96,7 +96,10 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         })
     }
 
-    pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    pub fn get_range(
+        &self,
+        range: GridBounds<GridIndex>,
+    ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         self.layer
             .rolling_grid()
             .get_range(range)
@@ -130,15 +133,25 @@ pub trait Chunk: Sized {
     };
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Layer, index: Point2d) -> Self;
+    fn compute(layer: &Self::Layer, index: GridPoint) -> Self;
 
     /// Get the bounds for the chunk at the given index
-    fn bounds(index: Point2d) -> GridBounds {
-        let min = index * Self::SIZE.into();
+    fn bounds(index: GridPoint) -> GridBounds {
+        let min = index.map(|GridIndex(i)| i) * Self::SIZE.into();
         GridBounds {
             min,
             max: min + Self::SIZE.into(),
         }
+    }
+
+    /// Get the grids that are touched by the given bounds.
+    fn bounds_to_grid(bounds: GridBounds) -> GridBounds<GridIndex> {
+        bounds.map(Self::pos_to_grid)
+    }
+
+    /// Get the grid the position is in
+    fn pos_to_grid(point: Point2d) -> GridPoint {
+        (point / Point2d::from(Self::SIZE)).map(GridIndex)
     }
 }
 

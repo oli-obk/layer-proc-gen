@@ -1,7 +1,7 @@
 use std::{num::NonZeroU16, sync::Arc};
 
 use layer_proc_gen::*;
-use rolling_grid::RollingGrid;
+use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use vec2::{GridBounds, Point2d};
 
 mod tracing;
@@ -25,7 +25,7 @@ impl Layer for TheLayer {
 impl Chunk for TheChunk {
     type Layer = TheLayer;
 
-    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         TheChunk(0)
     }
 }
@@ -70,7 +70,7 @@ impl Chunk for PlayerChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         PlayerChunk
     }
 }
@@ -115,7 +115,7 @@ impl Chunk for MapChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: Point2d) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         MapChunk
     }
 }
@@ -125,7 +125,7 @@ fn create_layer() {
     let layer = TheLayer::default();
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }, || TheChunk(0));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
 }
 
 #[test]
@@ -133,13 +133,13 @@ fn double_assign_chunk() {
     let layer = TheLayer::default();
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }, || TheChunk(0));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }, || TheChunk(1));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(1));
 }
 
 #[test]

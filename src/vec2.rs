@@ -8,7 +8,7 @@ use rand::{
 };
 use std::{
     num::NonZeroU16,
-    ops::{Add, Div, DivAssign, Mul, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, Sub},
 };
 
 #[derive(
@@ -63,6 +63,14 @@ impl<T: Copy> Point2d<T> {
     /// Basic constructor for when struct constructors are too inconvenient
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
+    }
+
+    /// Apply a closure to both `x` and `y`
+    pub fn map<U>(&self, f: impl Fn(T) -> U) -> Point2d<U> {
+        Point2d {
+            x: f(self.x),
+            y: f(self.y),
+        }
     }
 }
 
@@ -174,37 +182,51 @@ impl<T: Copy + PartialEq + PartialOrd + SampleUniform> GridBounds<T> {
             y: (self.min.y..self.max.y).sample_single(rng),
         }
     }
+
+    /// Apply a closure to both `min` and `max`
+    pub fn map<U>(&self, f: impl Fn(Point2d<T>) -> Point2d<U>) -> GridBounds<U> {
+        GridBounds {
+            min: f(self.min),
+            max: f(self.max),
+        }
+    }
 }
 
-impl GridBounds {
-    pub fn point(point: Point2d) -> Self {
+impl<T: Copy> GridBounds<T> {
+    pub fn point(point: Point2d<T>) -> Self {
         Self {
             min: point,
             max: point,
         }
     }
+}
 
-    pub fn iter(self) -> impl Iterator<Item = Point2d> {
+impl<T: PartialOrd + Num + Copy + AddAssign> GridBounds<T> {
+    pub fn iter(self) -> impl Iterator<Item = Point2d<T>> {
         let mut current = self.min;
         std::iter::from_fn(move || {
             if current.y > self.max.y {
                 None
             } else {
                 let item = current;
-                current.x += 1;
+                current.x += T::ONE;
                 if current.x > self.max.x {
                     current.x = self.min.x;
-                    current.y += 1;
+                    current.y += T::ONE;
                 }
                 Some(item)
             }
         })
     }
+}
 
-    pub fn center(&self) -> Point2d {
-        (self.max - self.min) / 2 + self.min
+impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> GridBounds<T> {
+    pub fn center(&self) -> Point2d<T> {
+        (self.max - self.min) / T::TWO + self.min
     }
+}
 
+impl GridBounds {
     /// Add padding on all sides.
     pub fn pad(&self, padding: Point2d) -> Self {
         Self {
@@ -249,4 +271,14 @@ impl<T: DivAssign + Copy> Div<Point2d<T>> for GridBounds<T> {
         self.max /= rhs;
         self
     }
+}
+
+pub trait Num {
+    const ONE: Self;
+    const TWO: Self;
+}
+
+impl Num for i64 {
+    const ONE: i64 = 1;
+    const TWO: i64 = 1;
 }
