@@ -72,23 +72,22 @@ impl<L: Layer> RollingGrid<L> {
         point.x + point.y * L::Chunk::SIZE.x.get() as usize
     }
 
-    pub fn get(&self, point: Point2d) -> Option<Ref<'_, L::Chunk>> {
-        Ref::filter_map(self.grid[Self::index_of_point(point)].borrow(), |cell| {
-            cell.get(point)
-        })
-        .ok()
+    pub fn get(&self, pos: Point2d) -> Option<Ref<'_, L::Chunk>> {
+        Ref::filter_map(self.access(pos).borrow(), |cell| cell.get(pos)).ok()
     }
 
     #[track_caller]
-    pub fn set(&self, point: Point2d, chunk: L::Chunk) {
-        self.grid[Self::index_of_point(point)]
-            .borrow_mut()
-            .set(point, chunk)
+    pub fn set(&self, pos: Point2d, chunk: L::Chunk) {
+        self.access(pos).borrow_mut().set(pos, chunk)
     }
 
     /// Ensure this chunk does not get removed until we request it
     /// to get removed.
     pub fn increment_user_count(&self, _point: Point2d) {
         todo!()
+    }
+
+    fn access(&self, pos: Point2d) -> &RefCell<Cell<L>> {
+        &self.grid[Self::index_of_point(pos)]
     }
 }
