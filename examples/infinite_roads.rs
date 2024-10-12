@@ -47,9 +47,56 @@ impl Chunk for LocationsChunk {
     }
 }
 
+/// Removes locations that are too close to others
+struct ReducedLocations {
+    grid: RollingGrid<Self>,
+    raw_locations: LayerDependency<Locations, 256, 256>,
+}
+
+#[derive(PartialEq, Debug)]
+struct ReducedLocationsChunk {
+    points: [Option<Point2d>; 3],
+}
+
+impl Layer for ReducedLocations {
+    type Chunk = ReducedLocationsChunk;
+
+    fn rolling_grid(&self) -> &RollingGrid<Self> {
+        &self.grid
+    }
+
+    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+        self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
+    }
+}
+
+impl Chunk for ReducedLocationsChunk {
+    type Layer = ReducedLocations;
+
+    fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
+        let points = layer.raw_locations.get(index).points.map(|p| {
+            for other in layer.raw_locations.get_range(GridBounds {
+                min: p,
+                max: p + Point2d::splat(100),
+            }) {
+                for other in other.points {
+                    if other == p {
+                        continue;
+                    }
+                    if other.dist_squared(p) < 100 * 100 {
+                        return None;
+                    }
+                }
+            }
+            Some(p)
+        });
+        ReducedLocationsChunk { points }
+    }
+}
+
 struct Roads {
     grid: RollingGrid<Self>,
-    locations: LayerDependency<Locations, 256, 256>,
+    locations: LayerDependency<ReducedLocations, 256, 256>,
 }
 
 #[derive(PartialEq, Debug)]
@@ -78,7 +125,7 @@ impl Chunk for RoadsChunk {
         seed[0..16].copy_from_slice(&index.map(|GridIndex(i)| i).to_ne_bytes());
         let mut rng = SmallRng::from_seed(seed);
         let mut roads = vec![];
-        for location in layer.locations.get(index).points {
+        for location in layer.locations.get(index).points.into_iter().flatten() {
             trace!(?location);
             let mut possible_destinations: Vec<_> = layer
                 .locations
@@ -87,6 +134,7 @@ impl Chunk for RoadsChunk {
                     max: index + Point2d { x: 1, y: 1 }.map(GridIndex),
                 })
                 .flat_map(|grid| grid.points.into_iter())
+                .flatten()
                 .filter(|point| point.x > location.x || point.y > location.y)
                 .collect();
             possible_destinations.shuffle(&mut rng);
@@ -145,7 +193,11 @@ impl Chunk for PlayerChunk {
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
     init_tracing();
-    let locations = Arc::new(Locations::default());
+    let raw_locations = Arc::new(Locations::default());
+    let locations = Arc::new(ReducedLocations {
+        grid: Default::default(),
+        raw_locations: raw_locations.into(),
+    });
     let roads = Arc::new(Roads {
         grid: Default::default(),
         locations: locations.into(),
@@ -157,6 +209,8 @@ async fn main() {
     loop {
         if is_key_down(KeyCode::W) {
             speed += 0.01;
+        } else {
+            speed *= 0.99;
         }
         if is_key_down(KeyCode::A) {
             rotation -= PI / 180.;
@@ -208,7 +262,7 @@ async fn main() {
         draw_rectangle_ex(
             screen_center.x,
             screen_center.y,
-            10.0,
+            15.0,
             10.0,
             DrawRectangleParams {
                 offset: vec2(0.5, 0.5),
@@ -216,8 +270,8 @@ async fn main() {
                 color: RED,
             },
         );
-
-        draw_text(&speed.to_string(), 0., 10., 10., BLACK);
+        let rotation = Vec2::from_angle(rotation) * 7.5 + screen_center;
+        draw_circle(rotation.x, rotation.y, 5., RED);
 
         next_frame().await
     }
