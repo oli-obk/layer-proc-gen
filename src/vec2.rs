@@ -292,9 +292,9 @@ impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> GridBound
     }
 }
 
-impl GridBounds {
+impl<T: Copy + Add<Output = T> + Sub<Output = T>> GridBounds<T> {
     /// Add padding on all sides.
-    pub fn pad(&self, padding: Point2d) -> Self {
+    pub fn pad(&self, padding: Point2d<T>) -> Self {
         Self {
             min: self.min - padding,
             max: self.max + padding,
