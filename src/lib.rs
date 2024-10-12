@@ -146,7 +146,7 @@ pub trait Chunk: Sized {
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint) -> GridBounds {
-        let min = index.map(|GridIndex(i)| i) * Self::SIZE.into();
+        let min = index.map(|GridIndex(i)| i) * Point2d::from(Self::SIZE);
         GridBounds {
             min,
             max: min + Self::SIZE.into(),

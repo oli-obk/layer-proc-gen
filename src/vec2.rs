@@ -8,7 +8,7 @@ use rand::{
 };
 use std::{
     num::NonZeroU16,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub},
 };
 
 #[derive(
@@ -34,6 +34,50 @@ use std::{
 pub struct Point2d<T = i64> {
     pub x: T,
     pub y: T,
+}
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Line<T = i64> {
+    pub start: Point2d<T>,
+    pub end: Point2d<T>,
+}
+
+impl Line {
+    // impl from https://stackoverflow.com/a/14795484
+    pub fn get_intersection(self, other: Self) -> Option<Point2d> {
+        let s10 = self.end - self.start;
+        let s32 = other.end - other.start;
+
+        let denom = s10.x * s32.y - s32.x * s10.y;
+        if denom == 0 {
+            return None; // Collinear
+        }
+        let denom_positive = denom > 0;
+
+        let s02 = self.start - other.start;
+        let s_numer = s10.x * s02.y - s10.y * s02.x;
+        if (s_numer < 0) == denom_positive {
+            return None; // No collision
+        }
+        let t_numer = s32.x * s02.y - s32.y * s02.x;
+        if (t_numer < 0) == denom_positive {
+            return None; // No collision
+        }
+        if (s_numer > denom) == denom_positive || (t_numer > denom) == denom_positive {
+            return None; // No collision
+        }
+        // Collision detected
+        let t = t_numer / denom;
+
+        Some(self.start + s10 * t)
+    }
+
+    pub fn bounds(&self) -> GridBounds {
+        GridBounds {
+            min: self.start,
+            max: self.end,
+        }
+    }
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
@@ -70,6 +114,13 @@ impl<T: Copy> Point2d<T> {
         Point2d {
             x: f(self.x),
             y: f(self.y),
+        }
+    }
+
+    pub fn to(self, other: Self) -> Line<T> {
+        Line {
+            start: self,
+            end: other,
         }
     }
 }
@@ -159,6 +210,21 @@ impl<T: DivAssign + Copy> DivAssign<T> for Point2d<T> {
     fn div_assign(&mut self, rhs: T) {
         self.x /= rhs;
         self.y /= rhs;
+    }
+}
+
+impl<T: MulAssign + Copy> Mul<T> for Point2d<T> {
+    type Output = Self;
+    fn mul(mut self, rhs: T) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+
+impl<T: MulAssign + Copy> MulAssign<T> for Point2d<T> {
+    fn mul_assign(&mut self, rhs: T) {
+        self.x *= rhs;
+        self.y *= rhs;
     }
 }
 

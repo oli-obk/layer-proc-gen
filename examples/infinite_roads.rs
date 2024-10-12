@@ -5,7 +5,7 @@ use std::{f32::consts::PI, sync::Arc};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
-use vec2::{GridBounds, Point2d};
+use vec2::{GridBounds, Line, Point2d};
 
 #[path = "../tests/tracing.rs"]
 mod tracing_helper;
@@ -101,7 +101,7 @@ struct Roads {
 
 #[derive(PartialEq, Debug)]
 struct RoadsChunk {
-    roads: Vec<(Point2d, Point2d)>,
+    roads: Vec<Line>,
 }
 
 impl Layer for Roads {
@@ -140,7 +140,7 @@ impl Chunk for RoadsChunk {
             possible_destinations.shuffle(&mut rng);
             for _ in 0..rng.gen_range(0..3) {
                 if let Some(dest) = possible_destinations.pop() {
-                    roads.push((location, dest));
+                    roads.push(location.to(dest));
                 }
             }
         }
@@ -244,16 +244,16 @@ async fn main() {
         let vision_range = GridBounds::point(player_pos).pad(player.roads.padding());
         trace!(?vision_range);
         for roads in player.roads.get_range(vision_range) {
-            for &(start, end) in roads.roads.iter() {
-                let start = point2screen(start);
-                let end = point2screen(end);
+            for &line in roads.roads.iter() {
+                let start = point2screen(line.start);
+                let end = point2screen(line.end);
                 draw_line(start.x, start.y, end.x, end.y, 35., GRAY);
             }
         }
         for roads in player.roads.get_range(vision_range) {
-            for &(start, end) in roads.roads.iter() {
-                let start = point2screen(start);
-                let end = point2screen(end);
+            for &line in roads.roads.iter() {
+                let start = point2screen(line.start);
+                let end = point2screen(line.end);
                 draw_line(start.x, start.y, end.x, end.y, 4., WHITE);
                 draw_circle(start.x, start.y, 20., BLUE);
                 draw_circle(end.x, end.y, 20., BLUE);
