@@ -85,6 +85,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         Point2d::new(PADDING_X, PADDING_Y)
     }
 
+    /// Eagerly load all chunks in the given bounds (in world coordinates).
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
         let required_bounds = chunk_bounds.pad(self.padding());
         self.layer.ensure_loaded_in_bounds(required_bounds);
@@ -100,11 +101,13 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         })
     }
 
+    /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
     pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         let range = L::Chunk::bounds_to_grid(range);
         self.get_grid_range(range)
     }
 
+    /// Get an iterator over chunks as given by the bounds (in chunk grid indices)
     pub fn get_grid_range(
         &self,
         range: Bounds<GridIndex>,
