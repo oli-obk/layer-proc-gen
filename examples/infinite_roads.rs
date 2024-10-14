@@ -1,6 +1,7 @@
 use ::rand::prelude::*;
 use ::tracing::{debug, trace};
 use macroquad::{prelude::*, time};
+use miniquad::window::screen_size;
 use std::{f32::consts::PI, sync::Arc};
 
 use layer_proc_gen::*;
@@ -215,6 +216,14 @@ impl Chunk for PlayerChunk {
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
     init_tracing();
+
+    let mut camera = Camera2D::default();
+    camera.zoom = Vec2::from(screen_size()).recip() * 2.;
+    set_camera(&camera);
+    let mut overlay_camera = Camera2D::default();
+    overlay_camera.zoom = Vec2::from(screen_size()).recip() * 2.;
+    overlay_camera.offset = vec2(-1., 1.);
+
     let raw_locations = Arc::new(Locations::default());
     let locations = Arc::new(ReducedLocations {
         grid: Default::default(),
@@ -247,9 +256,10 @@ async fn main() {
         speed = speed.clamp(0.0, 2.0);
         player_pos += Vec2::from_angle(rotation) * speed;
 
-        let screen_center = vec2(screen_width(), screen_height()) / 2.;
+        set_camera(&camera);
+
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
-        let center = screen_center - player_pos.fract();
+        let adjust = -player_pos.fract();
 
         let player_pos = Point2d {
             x: player_pos.x as i64,
@@ -266,7 +276,7 @@ async fn main() {
 
         let point2screen = |point: Point2d| -> Vec2 {
             let point = point - player_pos;
-            i64vec2(point.x, point.y).as_vec2() + center
+            i64vec2(point.x, point.y).as_vec2() + adjust
         };
 
         let vision_range = GridBounds::point(player_pos).pad(player.roads.padding());
@@ -275,7 +285,11 @@ async fn main() {
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);
-                draw_line(start.x, start.y, end.x, end.y, 35., GRAY);
+                draw_line(start.x, start.y, end.x, end.y, 40., GRAY);
+                draw_circle(start.x, start.y, 20., GRAY);
+                draw_circle(start.x, start.y, 2., WHITE);
+                draw_circle(end.x, end.y, 20., GRAY);
+                draw_circle(end.x, end.y, 2., WHITE);
             }
         }
         for roads in player.roads.get_range(vision_range) {
@@ -283,13 +297,11 @@ async fn main() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);
                 draw_line(start.x, start.y, end.x, end.y, 4., WHITE);
-                draw_circle(start.x, start.y, 20., BLUE);
-                draw_circle(end.x, end.y, 20., BLUE);
             }
         }
         draw_rectangle_ex(
-            screen_center.x,
-            screen_center.y,
+            0.,
+            0.,
             15.0,
             10.0,
             DrawRectangleParams {
@@ -298,9 +310,10 @@ async fn main() {
                 color: RED,
             },
         );
-        let rotation = Vec2::from_angle(rotation) * 7.5 + screen_center;
+        let rotation = Vec2::from_angle(rotation) * 7.5;
         draw_circle(rotation.x, rotation.y, 5., RED);
 
+        set_camera(&overlay_camera);
         draw_text(
             &format!("last load time: {last_load_time}ms"),
             0.,
