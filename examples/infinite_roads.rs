@@ -238,6 +238,7 @@ async fn main() {
     let mut rotation = 0.0;
     let mut speed: f32 = 0.0;
     let mut last_load_time = 0.;
+    let mut smooth_cam_rotation = rotation;
     loop {
         if is_key_down(KeyCode::W) {
             speed += 0.01;
@@ -256,7 +257,8 @@ async fn main() {
         speed = speed.clamp(0.0, 2.0);
         player_pos += Vec2::from_angle(rotation) * speed;
 
-        camera.rotation = -rotation.to_degrees() - 90.;
+        smooth_cam_rotation = smooth_cam_rotation * 0.99 + rotation * 0.01;
+        camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
         set_camera(&camera);
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
