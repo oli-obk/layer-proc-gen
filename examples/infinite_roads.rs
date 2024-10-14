@@ -2,7 +2,7 @@ use ::rand::prelude::*;
 use ::tracing::{debug, trace};
 use macroquad::{prelude::*, time};
 use miniquad::window::screen_size;
-use std::{f32::consts::PI, sync::Arc};
+use std::sync::Arc;
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -245,17 +245,18 @@ async fn main() {
             speed *= 0.99;
         }
         if is_key_down(KeyCode::A) {
-            rotation -= PI / 180.;
+            rotation -= f32::to_radians(1.);
         }
         if is_key_down(KeyCode::S) {
             speed -= 0.1;
         }
         if is_key_down(KeyCode::D) {
-            rotation += PI / 180.;
+            rotation += f32::to_radians(1.);
         }
         speed = speed.clamp(0.0, 2.0);
         player_pos += Vec2::from_angle(rotation) * speed;
 
+        camera.rotation = -rotation.to_degrees() - 90.;
         set_camera(&camera);
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
