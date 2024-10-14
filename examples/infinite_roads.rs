@@ -1,6 +1,6 @@
 use ::rand::prelude::*;
 use ::tracing::{debug, trace};
-use macroquad::prelude::*;
+use macroquad::{prelude::*, time};
 use std::{f32::consts::PI, sync::Arc};
 
 use layer_proc_gen::*;
@@ -228,6 +228,7 @@ async fn main() {
     let mut player_pos = Vec2::new(0., 0.);
     let mut rotation = 0.0;
     let mut speed: f32 = 0.0;
+    let mut last_load_time = 0.;
     loop {
         if is_key_down(KeyCode::W) {
             speed += 0.01;
@@ -254,7 +255,12 @@ async fn main() {
             x: player_pos.x as i64,
             y: player_pos.y as i64,
         };
+        let load_time = time::get_time();
         player.ensure_loaded_in_bounds(GridBounds::point(player_pos));
+        let load_time = ((time::get_time() - load_time) * 10000.).round() / 10.;
+        if load_time > 0. {
+            last_load_time = load_time;
+        }
 
         clear_background(DARKGREEN);
 
@@ -294,6 +300,14 @@ async fn main() {
         );
         let rotation = Vec2::from_angle(rotation) * 7.5 + screen_center;
         draw_circle(rotation.x, rotation.y, 5., RED);
+
+        draw_text(
+            &format!("last load time: {last_load_time}ms"),
+            0.,
+            10.,
+            10.,
+            WHITE,
+        );
 
         next_frame().await
     }
