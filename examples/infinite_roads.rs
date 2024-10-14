@@ -2,7 +2,7 @@ use ::rand::prelude::*;
 use ::tracing::{debug, trace};
 use macroquad::{prelude::*, time};
 use miniquad::window::screen_size;
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -235,42 +235,47 @@ async fn main() {
         locations: locations.into(),
     });
     let player = Player::new(roads.clone());
-    let mut player_pos = Vec2::new(0., 0.);
-    let mut rotation = 0.0;
-    let mut speed: f32 = 0.0;
     let mut last_load_time = 0.;
-    let mut smooth_cam_rotation = rotation;
+    let mut smooth_cam_rotation = 0.0;
     let mut smooth_cam_speed = 0.0;
+
+    let mut car = Car {
+        length: 15.,
+        width: 10.,
+        speed: 0.0,
+        rotation: 0.0,
+        pos: vec2(0., 0.),
+        color: RED,
+    };
     loop {
         if is_key_down(KeyCode::W) {
-            speed += 0.01;
+            car.speed += 0.01;
         } else {
-            speed *= 0.99;
+            car.speed *= 0.99;
         }
         if is_key_down(KeyCode::A) {
-            rotation -= f32::to_radians(1.);
+            car.rotation -= f32::to_radians(1.);
         }
         if is_key_down(KeyCode::S) {
-            speed -= 0.1;
+            car.speed -= 0.1;
         }
         if is_key_down(KeyCode::D) {
-            rotation += f32::to_radians(1.);
+            car.rotation += f32::to_radians(1.);
         }
-        speed = speed.clamp(-0.3, 2.0);
-        player_pos += Vec2::from_angle(rotation) * speed;
+        car.update();
 
-        smooth_cam_rotation = smooth_cam_rotation * 0.99 + rotation * 0.01;
+        smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
         camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
-        smooth_cam_speed = smooth_cam_speed * 0.99 + speed * 0.01;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
         camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
         set_camera(&camera);
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
-        let adjust = -player_pos.fract();
+        let adjust = -car.pos.fract();
 
         let player_pos = Point2d {
-            x: player_pos.x as i64,
-            y: player_pos.y as i64,
+            x: car.pos.x as i64,
+            y: car.pos.y as i64,
         };
         let load_time = time::get_time();
         player.ensure_loaded_in_bounds(GridBounds::point(player_pos));
@@ -306,19 +311,7 @@ async fn main() {
                 draw_line(start.x, start.y, end.x, end.y, 4., WHITE);
             }
         }
-        draw_rectangle_ex(
-            0.,
-            0.,
-            15.0,
-            10.0,
-            DrawRectangleParams {
-                offset: vec2(0.5, 0.5),
-                rotation,
-                color: RED,
-            },
-        );
-        let rotation = Vec2::from_angle(rotation) * 7.5;
-        draw_circle(rotation.x, rotation.y, 5., RED);
+        car.draw();
 
         set_camera(&overlay_camera);
         draw_text(
@@ -330,5 +323,36 @@ async fn main() {
         );
 
         next_frame().await
+    }
+}
+
+struct Car {
+    length: f32,
+    width: f32,
+    rotation: f32,
+    color: Color,
+    speed: f32,
+    pos: Vec2,
+}
+
+impl Car {
+    fn update(&mut self) {
+        self.speed = self.speed.clamp(-0.3, 2.0);
+        self.pos += Vec2::from_angle(self.rotation) * self.speed;
+    }
+    fn draw(&self) {
+        draw_rectangle_ex(
+            0.,
+            0.,
+            self.length,
+            self.width,
+            DrawRectangleParams {
+                offset: vec2(0.5, 0.5),
+                rotation: self.rotation,
+                color: self.color,
+            },
+        );
+        let rotation = Vec2::from_angle(self.rotation) * self.length / 2.;
+        draw_circle(rotation.x, rotation.y, self.width / 2., self.color);
     }
 }
