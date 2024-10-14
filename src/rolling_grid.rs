@@ -159,8 +159,8 @@ impl<L: Layer> RollingGrid<L> {
     pub fn get_range(
         &self,
         range: Bounds<GridIndex>,
-    ) -> impl Iterator<Item = Option<Ref<'_, L::Chunk>>> {
-        range.iter().map(|point| self.get(point))
+    ) -> impl Iterator<Item = (GridPoint, Option<Ref<'_, L::Chunk>>)> {
+        range.iter().map(|point| (point, self.get(point)))
     }
 
     #[track_caller]

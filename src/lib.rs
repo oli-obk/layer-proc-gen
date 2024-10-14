@@ -115,7 +115,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer
             .rolling_grid()
             .get_range(range)
-            .map(move |chunk| {
+            .map(move |(_, chunk)| {
                 chunk.unwrap_or_else(|| {
                     panic!(
                         "a chunk in {range:?} is not yet loaded in {}",
