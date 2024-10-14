@@ -8,7 +8,7 @@ use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{debug_span, instrument, trace};
-use vec2::{GridBounds, Point2d};
+use vec2::{Bounds, Point2d};
 
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Sized {
@@ -35,7 +35,7 @@ pub trait Layer: Sized {
     /// May recursively cause the dependencies to load their deps and so on.
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_loaded_in_bounds(&self, bounds: GridBounds<i64>) {
+    fn ensure_loaded_in_bounds(&self, bounds: Bounds<i64>) {
         let indices = Self::Chunk::bounds_to_grid(bounds);
         trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
@@ -68,7 +68,7 @@ pub trait Layer: Sized {
     }
 
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds);
+    fn ensure_all_deps(&self, chunk_bounds: Bounds);
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
@@ -85,7 +85,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         Point2d::new(PADDING_X, PADDING_Y)
     }
 
-    pub fn ensure_loaded_in_bounds(&self, chunk_bounds: GridBounds) {
+    pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
         let required_bounds = chunk_bounds.pad(self.padding());
         self.layer.ensure_loaded_in_bounds(required_bounds);
     }
@@ -100,14 +100,14 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         })
     }
 
-    pub fn get_range(&self, range: GridBounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         let range = L::Chunk::bounds_to_grid(range);
         self.get_grid_range(range)
     }
 
     pub fn get_grid_range(
         &self,
-        range: GridBounds<GridIndex>,
+        range: Bounds<GridIndex>,
     ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         self.layer
             .rolling_grid()
@@ -145,16 +145,16 @@ pub trait Chunk: Sized {
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self;
 
     /// Get the bounds for the chunk at the given index
-    fn bounds(index: GridPoint) -> GridBounds {
+    fn bounds(index: GridPoint) -> Bounds {
         let min = index.map(|GridIndex(i)| i) * Point2d::from(Self::SIZE);
-        GridBounds {
+        Bounds {
             min,
             max: min + Self::SIZE.into(),
         }
     }
 
     /// Get the grids that are touched by the given bounds.
-    fn bounds_to_grid(bounds: GridBounds) -> GridBounds<GridIndex> {
+    fn bounds_to_grid(bounds: Bounds) -> Bounds<GridIndex> {
         bounds.map(Self::pos_to_grid)
     }
 

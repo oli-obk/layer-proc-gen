@@ -1,5 +1,5 @@
 use crate::{
-    vec2::{GridBounds, Num, Point2d},
+    vec2::{Bounds, Num, Point2d},
     Chunk, Layer,
 };
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
@@ -158,7 +158,7 @@ impl<L: Layer> RollingGrid<L> {
 
     pub fn get_range(
         &self,
-        range: GridBounds<GridIndex>,
+        range: Bounds<GridIndex>,
     ) -> impl Iterator<Item = Option<Ref<'_, L::Chunk>>> {
         range.iter().map(|point| self.get(point))
     }
@@ -170,8 +170,7 @@ impl<L: Layer> RollingGrid<L> {
 
     #[track_caller]
     fn access(&self, pos: GridPoint) -> &RefCell<Cell<L>> {
-        self
-            .grid
+        self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
     }

@@ -2,7 +2,7 @@ use std::{num::NonZeroU16, sync::Arc};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
-use vec2::{GridBounds, Point2d};
+use vec2::{Bounds, Point2d};
 
 mod tracing;
 use tracing::*;
@@ -19,7 +19,7 @@ impl Layer for TheLayer {
         &self.0
     }
 
-    fn ensure_all_deps(&self, _chunk_bounds: GridBounds) {}
+    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for TheChunk {
@@ -57,7 +57,7 @@ impl Layer for Player {
 
     const GRID_OVERLAP: u8 = 1;
 
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
     }
 }
@@ -98,7 +98,7 @@ impl Layer for Map {
         &self.grid
     }
 
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
     }
 
@@ -148,7 +148,7 @@ fn create_player() {
     let the_layer = Arc::new(TheLayer::default());
     let player = Player::new(the_layer.clone());
     let player_pos = Point2d { x: 42, y: 99 };
-    player.ensure_loaded_in_bounds(GridBounds::point(player_pos));
+    player.ensure_loaded_in_bounds(Bounds::point(player_pos));
     let map = Map::new(the_layer);
-    map.ensure_loaded_in_bounds(GridBounds::point(player_pos));
+    map.ensure_loaded_in_bounds(Bounds::point(player_pos));
 }

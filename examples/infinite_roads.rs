@@ -6,7 +6,7 @@ use std::{sync::Arc, vec};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
-use vec2::{GridBounds, Line, Point2d};
+use vec2::{Bounds, Line, Point2d};
 
 #[path = "../tests/tracing.rs"]
 mod tracing_helper;
@@ -26,7 +26,7 @@ impl Layer for Locations {
         &self.0
     }
 
-    fn ensure_all_deps(&self, _chunk_bounds: GridBounds) {}
+    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for LocationsChunk {
@@ -69,7 +69,7 @@ impl Layer for ReducedLocations {
         &self.grid
     }
 
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
     }
 }
@@ -79,7 +79,7 @@ impl Chunk for ReducedLocationsChunk {
 
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let points = layer.raw_locations.get(index).points.map(|p| {
-            for other in layer.raw_locations.get_range(GridBounds {
+            for other in layer.raw_locations.get_range(Bounds {
                 min: p,
                 max: p + Point2d::splat(100),
             }) {
@@ -116,7 +116,7 @@ impl Layer for Roads {
     }
 
     #[track_caller]
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.locations.ensure_loaded_in_bounds(chunk_bounds);
     }
 }
@@ -129,7 +129,7 @@ impl Chunk for RoadsChunk {
         let mut points = [None; 3 * 9];
         for (i, point) in layer
             .locations
-            .get_grid_range(GridBounds::point(index).pad(Point2d::splat(1).map(GridIndex)))
+            .get_grid_range(Bounds::point(index).pad(Point2d::splat(1).map(GridIndex)))
             .flat_map(|grid| grid.points.into_iter())
             .enumerate()
         {
@@ -200,7 +200,7 @@ impl Layer for Player {
 
     const GRID_OVERLAP: u8 = 2;
 
-    fn ensure_all_deps(&self, chunk_bounds: GridBounds) {
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.roads.ensure_loaded_in_bounds(chunk_bounds);
     }
 }
@@ -271,7 +271,7 @@ async fn main() {
             y: car.pos.y as i64,
         };
         let load_time = time::get_time();
-        player.ensure_loaded_in_bounds(GridBounds::point(player_pos));
+        player.ensure_loaded_in_bounds(Bounds::point(player_pos));
         let load_time = ((time::get_time() - load_time) * 10000.).round() / 10.;
         if load_time > 0. {
             last_load_time = load_time;
@@ -284,7 +284,7 @@ async fn main() {
             i64vec2(point.x, point.y).as_vec2() + adjust
         };
 
-        let vision_range = GridBounds::point(player_pos).pad(player.roads.padding());
+        let vision_range = Bounds::point(player_pos).pad(player.roads.padding());
         trace!(?vision_range);
         for roads in player.roads.get_range(vision_range) {
             for &line in roads.roads.iter() {

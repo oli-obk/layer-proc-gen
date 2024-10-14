@@ -72,8 +72,8 @@ impl Line {
         Some(self.start + s10 * t)
     }
 
-    pub fn bounds(&self) -> GridBounds {
-        GridBounds {
+    pub fn bounds(&self) -> Bounds {
+        Bounds {
             min: self.start,
             max: self.end,
         }
@@ -230,18 +230,18 @@ impl<T: MulAssign + Copy> MulAssign<T> for Point2d<T> {
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// A rectangle that includes the minimum and maximum values
-pub struct GridBounds<T = i64> {
+pub struct Bounds<T = i64> {
     pub min: Point2d<T>,
     pub max: Point2d<T>,
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for GridBounds<T> {
+impl<T: std::fmt::Debug> std::fmt::Debug for Bounds<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}..={:?}", self.min, self.max)
     }
 }
 
-impl<T: Copy + PartialEq + PartialOrd + SampleUniform> GridBounds<T> {
+impl<T: Copy + PartialEq + PartialOrd + SampleUniform> Bounds<T> {
     pub fn sample<R: RngCore + ?Sized>(self, rng: &mut R) -> Point2d<T> {
         Point2d {
             x: (self.min.x..self.max.x).sample_single(rng),
@@ -250,15 +250,15 @@ impl<T: Copy + PartialEq + PartialOrd + SampleUniform> GridBounds<T> {
     }
 
     /// Apply a closure to both `min` and `max`
-    pub fn map<U>(&self, f: impl Fn(Point2d<T>) -> Point2d<U>) -> GridBounds<U> {
-        GridBounds {
+    pub fn map<U>(&self, f: impl Fn(Point2d<T>) -> Point2d<U>) -> Bounds<U> {
+        Bounds {
             min: f(self.min),
             max: f(self.max),
         }
     }
 }
 
-impl<T: Copy> GridBounds<T> {
+impl<T: Copy> Bounds<T> {
     pub fn point(point: Point2d<T>) -> Self {
         Self {
             min: point,
@@ -267,7 +267,7 @@ impl<T: Copy> GridBounds<T> {
     }
 }
 
-impl<T: PartialOrd + Num + Copy + AddAssign> GridBounds<T> {
+impl<T: PartialOrd + Num + Copy + AddAssign> Bounds<T> {
     pub fn iter(self) -> impl Iterator<Item = Point2d<T>> {
         let mut current = self.min;
         std::iter::from_fn(move || {
@@ -286,13 +286,13 @@ impl<T: PartialOrd + Num + Copy + AddAssign> GridBounds<T> {
     }
 }
 
-impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> GridBounds<T> {
+impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> Bounds<T> {
     pub fn center(&self) -> Point2d<T> {
         (self.max - self.min) / T::TWO + self.min
     }
 }
 
-impl<T: Copy + Add<Output = T> + Sub<Output = T>> GridBounds<T> {
+impl<T: Copy + Add<Output = T> + Sub<Output = T>> Bounds<T> {
     /// Add padding on all sides.
     pub fn pad(&self, padding: Point2d<T>) -> Self {
         Self {
@@ -305,7 +305,7 @@ impl<T: Copy + Add<Output = T> + Sub<Output = T>> GridBounds<T> {
 #[cfg(test)]
 #[test]
 fn iter() {
-    let grid = GridBounds {
+    let grid = Bounds {
         min: Point2d::new(10, 42),
         max: Point2d::new(12, 43),
     };
@@ -323,14 +323,14 @@ fn iter() {
 #[cfg(test)]
 #[test]
 fn iter_point() {
-    let grid = GridBounds::point(Point2d::new(10, 42));
+    let grid = Bounds::point(Point2d::new(10, 42));
     let mut iter = grid.iter();
     assert_eq!(iter.next(), Some(grid.min));
     assert_eq!(iter.next(), None);
     assert_eq!(iter.next(), None);
 }
 
-impl<T: DivAssign + Copy> Div<Point2d<T>> for GridBounds<T> {
+impl<T: DivAssign + Copy> Div<Point2d<T>> for Bounds<T> {
     type Output = Self;
     fn div(mut self, rhs: Point2d<T>) -> Self::Output {
         self.min /= rhs;
