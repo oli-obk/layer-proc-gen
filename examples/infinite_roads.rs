@@ -246,23 +246,15 @@ async fn main() {
         rotation: 0.0,
         pos: vec2(0., 0.),
         color: RED,
+        braking: false,
     };
     loop {
-        if is_key_down(KeyCode::W) {
-            car.speed += 0.01;
-        } else {
-            car.speed *= 0.99;
-        }
-        if is_key_down(KeyCode::A) {
-            car.rotation -= f32::to_radians(1.);
-        }
-        if is_key_down(KeyCode::S) {
-            car.speed -= 0.1;
-        }
-        if is_key_down(KeyCode::D) {
-            car.rotation += f32::to_radians(1.);
-        }
-        car.update();
+        car.update(Actions {
+            accelerate: is_key_down(KeyCode::W),
+            reverse_or_brake: is_key_down(KeyCode::S),
+            left: is_key_down(KeyCode::A),
+            right: is_key_down(KeyCode::D),
+        });
 
         smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
         camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
@@ -333,10 +325,41 @@ struct Car {
     color: Color,
     speed: f32,
     pos: Vec2,
+    /// Used to ensure that braking doesn't go into reversing without releasing and
+    /// repressing the key.
+    braking: bool,
+}
+
+struct Actions {
+    accelerate: bool,
+    reverse_or_brake: bool,
+    left: bool,
+    right: bool,
 }
 
 impl Car {
-    fn update(&mut self) {
+    fn update(&mut self, actions: Actions) {
+        let braking = self.braking;
+        self.braking = false;
+        if actions.reverse_or_brake {
+            if self.speed > 0. {
+                self.speed = (self.speed - 0.1).clamp(0.0, 2.0);
+                self.braking = true;
+            } else if !braking {
+                self.speed -= 0.01;
+            }
+        } else if actions.accelerate {
+            self.speed += 0.01;
+        } else {
+            self.speed *= 0.99;
+        }
+
+        if actions.left {
+            self.rotation -= f32::to_radians(1.) * self.speed;
+        }
+        if actions.right {
+            self.rotation += f32::to_radians(1.) * self.speed;
+        }
         self.speed = self.speed.clamp(-0.3, 2.0);
         self.pos += Vec2::from_angle(self.rotation) * self.speed;
     }
