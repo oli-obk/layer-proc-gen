@@ -245,13 +245,14 @@ async fn main() {
         speed: 0.0,
         rotation: 0.0,
         pos: vec2(0., 0.),
-        color: RED,
+        color: DARKPURPLE,
         braking: false,
     };
     loop {
         car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
-            reverse_or_brake: is_key_down(KeyCode::S),
+            reverse: is_key_down(KeyCode::S),
+            brake: is_key_down(KeyCode::Space),
             left: is_key_down(KeyCode::A),
             right: is_key_down(KeyCode::D),
         });
@@ -332,22 +333,24 @@ struct Car {
 
 struct Actions {
     accelerate: bool,
-    reverse_or_brake: bool,
+    brake: bool,
+    reverse: bool,
     left: bool,
     right: bool,
 }
 
 impl Car {
     fn update(&mut self, actions: Actions) {
-        let braking = self.braking;
-        self.braking = false;
-        if actions.reverse_or_brake {
+        let braking = self.braking || actions.brake || self.speed > 0. && actions.reverse;
+        self.braking = actions.brake;
+        if braking {
             if self.speed > 0. {
                 self.speed = (self.speed - 0.1).clamp(0.0, 2.0);
-                self.braking = true;
-            } else if !braking {
-                self.speed -= 0.01;
+            } else {
+                self.speed = (self.speed + 0.1).clamp(-0.3, 0.0);
             }
+        } else if actions.reverse {
+            self.speed -= 0.01;
         } else if actions.accelerate {
             self.speed += 0.01;
         } else {
@@ -377,5 +380,20 @@ impl Car {
         );
         let rotation = Vec2::from_angle(self.rotation) * self.length / 2.;
         draw_circle(rotation.x, rotation.y, self.width / 2., self.color);
+
+        if self.braking || self.speed < 0. {
+            let rotation = Vec2::from_angle(self.rotation) * (self.length / 2. + 1.);
+            draw_rectangle_ex(
+                -rotation.x,
+                -rotation.y,
+                2.,
+                self.width,
+                DrawRectangleParams {
+                    offset: vec2(0.5, 0.5),
+                    rotation: self.rotation,
+                    color: if self.speed < 0. { WHITE } else { RED },
+                },
+            );
+        }
     }
 }
