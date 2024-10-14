@@ -34,8 +34,11 @@ impl Chunk for LocationsChunk {
     fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
         let chunk_bounds = Self::bounds(index);
         trace!(?chunk_bounds);
+        let mut x = SmallRng::seed_from_u64(index.x.0 as u64);
+        let mut y = SmallRng::seed_from_u64(index.y.0 as u64);
         let mut seed = [0; 32];
-        seed[0..16].copy_from_slice(&index.map(|GridIndex(i)| i).to_ne_bytes());
+        x.fill_bytes(&mut seed[..16]);
+        y.fill_bytes(&mut seed[16..]);
         let mut rng = SmallRng::from_seed(seed);
         let points = [
             chunk_bounds.sample(&mut rng),
