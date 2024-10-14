@@ -256,7 +256,7 @@ async fn main() {
         if is_key_down(KeyCode::D) {
             rotation += f32::to_radians(1.);
         }
-        speed = speed.clamp(0.0, 2.0);
+        speed = speed.clamp(-0.3, 2.0);
         player_pos += Vec2::from_angle(rotation) * speed;
 
         smooth_cam_rotation = smooth_cam_rotation * 0.99 + rotation * 0.01;
