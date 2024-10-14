@@ -218,10 +218,11 @@ async fn main() {
     init_tracing();
 
     let mut camera = Camera2D::default();
-    camera.zoom = Vec2::from(screen_size()).recip() * 2.;
+    let standard_zoom = Vec2::from(screen_size()).recip() * 2.;
+    camera.zoom = standard_zoom;
     set_camera(&camera);
     let mut overlay_camera = Camera2D::default();
-    overlay_camera.zoom = Vec2::from(screen_size()).recip() * 2.;
+    overlay_camera.zoom = standard_zoom;
     overlay_camera.offset = vec2(-1., 1.);
 
     let raw_locations = Arc::new(Locations::default());
@@ -239,6 +240,7 @@ async fn main() {
     let mut speed: f32 = 0.0;
     let mut last_load_time = 0.;
     let mut smooth_cam_rotation = rotation;
+    let mut smooth_cam_speed = 0.0;
     loop {
         if is_key_down(KeyCode::W) {
             speed += 0.01;
@@ -259,6 +261,8 @@ async fn main() {
 
         smooth_cam_rotation = smooth_cam_rotation * 0.99 + rotation * 0.01;
         camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + speed * 0.01;
+        camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
         set_camera(&camera);
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
