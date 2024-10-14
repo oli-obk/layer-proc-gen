@@ -1,5 +1,6 @@
 use ::rand::prelude::*;
 use ::tracing::{debug, trace};
+use arrayvec::ArrayVec;
 use macroquad::{prelude::*, time};
 use miniquad::window::screen_size;
 use std::{sync::Arc, vec};
@@ -59,7 +60,7 @@ struct ReducedLocations {
 
 #[derive(PartialEq, Debug)]
 struct ReducedLocationsChunk {
-    points: [Option<Point2d>; 3],
+    points: ArrayVec<Point2d, 3>,
 }
 
 impl Layer for ReducedLocations {
@@ -78,7 +79,8 @@ impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
 
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
-        let points = layer.raw_locations.get(index).points.map(|p| {
+        let mut points = ArrayVec::new();
+        'points: for p in layer.raw_locations.get(index).points {
             for other in layer.raw_locations.get_range(Bounds {
                 min: p,
                 max: p + Point2d::splat(100),
@@ -88,12 +90,12 @@ impl Chunk for ReducedLocationsChunk {
                         continue;
                     }
                     if other.dist_squared(p) < 100 * 100 {
-                        return None;
+                        continue 'points;
                     }
                 }
             }
-            Some(p)
-        });
+            points.push(p);
+        }
         ReducedLocationsChunk { points }
     }
 }
@@ -126,14 +128,19 @@ impl Chunk for RoadsChunk {
 
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let mut roads = vec![];
-        let mut points = [None; 3 * 9];
-        for (i, point) in layer
+        let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
+        let mut start = usize::MAX;
+        let mut n = usize::MAX;
+        for (i, grid) in layer
             .locations
             .get_grid_range(Bounds::point(index).pad(Point2d::splat(1).map(GridIndex)))
-            .flat_map(|grid| grid.points.into_iter())
             .enumerate()
         {
-            points[i] = point;
+            if i == 4 {
+                start = points.len();
+                n = grid.points.len();
+            }
+            points.extend(grid.points.iter().copied());
         }
         // We only care about the roads starting from the center grid cell, as the others are not necessarily correct,
         // or will be computed by the other grid cells.
@@ -146,24 +153,20 @@ impl Chunk for RoadsChunk {
         // FIXME: cache distance computations as we do them, we can save 1215-(3*9^3)/2 = 850 distance computations (70%) and figure
         // out how to cache them across grid cells (along with removing them from the cache when they aren't needed anymore)
         // as the neighboring cells will be redoing the same distance computations.
-        for (i, &a) in points.iter().enumerate().skip(3 * 4).take(3) {
-            if let Some(a) = a {
-                for &b in points.iter().skip(i + 1) {
-                    if let Some(b) = b {
-                        let dist = a.dist_squared(b);
-                        if points.iter().copied().flatten().all(|c| {
-                            if a == c || b == c {
-                                return true;
-                            }
-                            // FIXME: make cheaper by already bailing if `x*x` is larger than dist,
-                            // to avoid computing `y*y`.
-                            let a_dist = a.dist_squared(c);
-                            let b_dist = c.dist_squared(b);
-                            dist < a_dist || dist < b_dist
-                        }) {
-                            roads.push(a.to(b))
-                        }
+        for (i, &a) in points.iter().enumerate().skip(start).take(n) {
+            for &b in points.iter().skip(i + 1) {
+                let dist = a.dist_squared(b);
+                if points.iter().copied().all(|c| {
+                    if a == c || b == c {
+                        return true;
                     }
+                    // FIXME: make cheaper by already bailing if `x*x` is larger than dist,
+                    // to avoid computing `y*y`.
+                    let a_dist = a.dist_squared(c);
+                    let b_dist = c.dist_squared(b);
+                    dist < a_dist || dist < b_dist
+                }) {
+                    roads.push(a.to(b))
                 }
             }
         }

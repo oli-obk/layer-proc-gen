@@ -8,6 +8,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-tree = "0.4.0"
 macroquad = "0.4.13"
 rand = { version = "0.8.5", features = ["small_rng"], default-features = false }
+arrayvec = "0.7.6"
 
 
 [dependencies]
