@@ -1,4 +1,10 @@
-use std::{num::NonZeroU16, sync::Arc};
+use std::{
+    future::Future,
+    num::NonZeroU16,
+    pin::pin,
+    sync::Arc,
+    task::{Context, Wake},
+};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -19,13 +25,13 @@ impl Layer for TheLayer {
         &self.0
     }
 
-    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
+    async fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for TheChunk {
     type Layer = TheLayer;
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    async fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         TheChunk(0)
     }
 }
@@ -57,8 +63,8 @@ impl Layer for Player {
 
     const GRID_OVERLAP: u8 = 1;
 
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.the_layer.ensure_loaded_in_bounds(chunk_bounds).await;
     }
 }
 
@@ -70,7 +76,7 @@ impl Chunk for PlayerChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    async fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         PlayerChunk
     }
 }
@@ -98,8 +104,8 @@ impl Layer for Map {
         &self.grid
     }
 
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.the_layer.ensure_loaded_in_bounds(chunk_bounds).await;
     }
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
@@ -115,31 +121,56 @@ impl Chunk for MapChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    async fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         MapChunk
+    }
+}
+
+#[track_caller]
+fn expect_future_doesnt_pend<T>(f: impl Future<Output = T>) -> T {
+    let f = pin!(f);
+
+    struct Dummy;
+    impl Wake for Dummy {
+        fn wake(self: Arc<Self>) {
+            todo!()
+        }
+    }
+    match f.poll(&mut Context::from_waker(&Arc::new(Dummy).into())) {
+        std::task::Poll::Ready(v) => v,
+        std::task::Poll::Pending => panic!("future pended"),
     }
 }
 
 #[test]
 fn create_layer() {
     let layer = TheLayer::default();
-    layer
+    let fut = layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || {
+            std::future::ready(TheChunk(0))
+        });
+    expect_future_doesnt_pend(fut);
 }
 
 #[test]
 fn double_assign_chunk() {
     let layer = TheLayer::default();
-    layer
+    let fut = layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || {
+            std::future::ready(TheChunk(0))
+        });
+    expect_future_doesnt_pend(fut);
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
-    layer
+    let fut = layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(1));
+        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || {
+            std::future::ready(TheChunk(0))
+        });
+    expect_future_doesnt_pend(fut);
 }
 
 #[test]
@@ -148,7 +179,7 @@ fn create_player() {
     let the_layer = Arc::new(TheLayer::default());
     let player = Player::new(the_layer.clone());
     let player_pos = Point2d { x: 42, y: 99 };
-    player.ensure_loaded_in_bounds(Bounds::point(player_pos));
+    expect_future_doesnt_pend(player.ensure_loaded_in_bounds(Bounds::point(player_pos)));
     let map = Map::new(the_layer);
-    map.ensure_loaded_in_bounds(Bounds::point(player_pos));
+    expect_future_doesnt_pend(map.ensure_loaded_in_bounds(Bounds::point(player_pos)));
 }

@@ -3,6 +3,7 @@ use ::tracing::{debug, trace};
 use arrayvec::ArrayVec;
 use macroquad::{prelude::*, time};
 use miniquad::window::screen_size;
+use scheduler::Scheduler;
 use std::{sync::Arc, vec};
 
 use layer_proc_gen::*;
@@ -27,13 +28,13 @@ impl Layer for Locations {
         &self.0
     }
 
-    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
+    async fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for LocationsChunk {
     type Layer = Locations;
 
-    fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
+    async fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
         let chunk_bounds = Self::bounds(index);
         trace!(?chunk_bounds);
         let mut x = SmallRng::seed_from_u64(index.x.0 as u64);
@@ -70,22 +71,24 @@ impl Layer for ReducedLocations {
         &self.grid
     }
 
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.raw_locations
+            .ensure_loaded_in_bounds(chunk_bounds)
+            .await;
     }
 }
 
 impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
 
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
+    async fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let mut points = ArrayVec::new();
-        'points: for p in layer.raw_locations.get(index).points {
+        'points: for p in layer.raw_locations.get(index).await.points {
             for other in layer.raw_locations.get_range(Bounds {
                 min: p,
                 max: p + Point2d::splat(100),
             }) {
-                for other in other.points {
+                for other in other.await.points {
                     if other == p {
                         continue;
                     }
@@ -117,16 +120,15 @@ impl Layer for Roads {
         &self.grid
     }
 
-    #[track_caller]
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.locations.ensure_loaded_in_bounds(chunk_bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.locations.ensure_loaded_in_bounds(chunk_bounds).await;
     }
 }
 
 impl Chunk for RoadsChunk {
     type Layer = Roads;
 
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
+    async fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let mut roads = vec![];
         let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
         let mut start = usize::MAX;
@@ -136,6 +138,7 @@ impl Chunk for RoadsChunk {
             .get_grid_range(Bounds::point(index).pad(Point2d::splat(1).map(GridIndex)))
             .enumerate()
         {
+            let grid = grid.await;
             if i == 4 {
                 start = points.len();
                 n = grid.points.len();
@@ -203,15 +206,15 @@ impl Layer for Player {
 
     const GRID_OVERLAP: u8 = 2;
 
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.roads.ensure_loaded_in_bounds(chunk_bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.roads.ensure_loaded_in_bounds(chunk_bounds).await;
     }
 }
 
 impl Chunk for PlayerChunk {
     type Layer = Player;
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    async fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         PlayerChunk
     }
 }
@@ -219,6 +222,9 @@ impl Chunk for PlayerChunk {
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
     init_tracing();
+
+    let scheduler = Scheduler::default();
+    let scheduler = &scheduler;
 
     let mut camera = Camera2D::default();
     let standard_zoom = Vec2::from(screen_size()).recip() * 2.;
@@ -274,7 +280,6 @@ async fn main() {
             y: car.pos.y as i64,
         };
         let load_time = time::get_time();
-        player.ensure_loaded_in_bounds(Bounds::point(player_pos));
         let load_time = ((time::get_time() - load_time) * 10000.).round() / 10.;
         if load_time > 0. {
             last_load_time = load_time;
@@ -290,6 +295,9 @@ async fn main() {
         let vision_range = Bounds::point(player_pos).pad(player.roads.padding());
         trace!(?vision_range);
         for roads in player.roads.get_range(vision_range) {
+            let Some(roads) = scheduler.try_await(roads) else {
+                continue;
+            };
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);
@@ -301,6 +309,9 @@ async fn main() {
             }
         }
         for roads in player.roads.get_range(vision_range) {
+            let Some(roads) = scheduler.try_await(roads) else {
+                continue;
+            };
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);

@@ -14,6 +14,7 @@ use std::{
 #[derive(
     Copy,
     Clone,
+    Hash,
     PartialEq,
     Eq,
     PartialOrd,

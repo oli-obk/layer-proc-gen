@@ -3,8 +3,11 @@ use crate::{
     Chunk, Layer,
 };
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use std::cell::{Ref, RefCell};
 use std::ops::{Div, DivAssign};
+use std::{
+    cell::{Ref, RefCell},
+    future::Future,
+};
 
 pub type GridPoint = crate::vec2::Point2d<GridIndex>;
 
@@ -25,6 +28,7 @@ impl<L: Layer> Default for RollingGrid<L> {
 #[derive(
     Copy,
     Clone,
+    Hash,
     PartialEq,
     Eq,
     PartialOrd,
@@ -92,11 +96,14 @@ impl<L: Layer> Cell<L> {
             .map(|c| &c.chunk)
     }
 
-    #[track_caller]
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    fn set(&mut self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) {
+    async fn set<F: Future<Output = L::Chunk>>(
+        &mut self,
+        pos: GridPoint,
+        chunk: impl FnOnce() -> F,
+    ) {
         let mut free = None;
         for p in self.0.iter_mut() {
             if let Some(p) = p {
@@ -112,7 +119,7 @@ impl<L: Layer> Cell<L> {
             Some(data) => {
                 *data = Some(ActiveCell {
                     pos,
-                    chunk: chunk(),
+                    chunk: chunk().await,
                     user_count: 0,
                 })
             }
@@ -156,9 +163,12 @@ impl<L: Layer> RollingGrid<L> {
         Ref::filter_map(self.access(pos).borrow(), |cell| cell.get(pos)).ok()
     }
 
-    #[track_caller]
-    pub fn set(&self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) {
-        self.access(pos).borrow_mut().set(pos, chunk)
+    pub async fn set<F: Future<Output = L::Chunk>>(
+        &self,
+        pos: GridPoint,
+        chunk: impl FnOnce() -> F,
+    ) {
+        self.access(pos).borrow_mut().set(pos, chunk).await
     }
 
     #[track_caller]

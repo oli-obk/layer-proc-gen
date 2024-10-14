@@ -3,12 +3,22 @@
 //! You implement pairs of layers and chunks, e.g. ExampleLayer and ExampleChunk. A layer contains chunks of the corresponding type.
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+#![allow(async_fn_in_trait)]
 
-use std::{cell::Ref, num::NonZeroU16, sync::Arc};
+use std::{
+    cell::{Ref, RefCell},
+    collections::HashMap,
+    future::Future,
+    num::NonZeroU16,
+    sync::Arc,
+};
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
+use scheduler::Scheduler;
 use tracing::{debug_span, instrument, trace};
 use vec2::{Bounds, Point2d};
+
+pub mod scheduler;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Sized {
@@ -33,9 +43,8 @@ pub trait Layer: Sized {
 
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
-    #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_loaded_in_bounds(&self, bounds: Bounds<i64>) {
+    async fn ensure_loaded_in_bounds(&self, bounds: Bounds<i64>) {
         let indices = Self::Chunk::bounds_to_grid(bounds);
         trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
@@ -44,31 +53,32 @@ pub trait Layer: Sized {
         // Difference to
         create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
         for index in create_indices {
-            self.create_and_register_chunk(index);
+            self.create_and_register_chunk(index).await;
         }
     }
 
     /// Load a single chunk.
-    #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn create_and_register_chunk(&self, index: GridPoint) {
-        self.rolling_grid().set(index, || {
-            let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
-            let _guard = span.enter();
-            self.ensure_chunk_providers(index);
-            Self::Chunk::compute(self, index)
-        })
+    async fn create_and_register_chunk(&self, index: GridPoint) {
+        self.rolling_grid()
+            .set(index, || async move {
+                let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
+                let _guard = span.enter();
+                self.ensure_chunk_providers(index).await;
+                Self::Chunk::compute(self, index).await
+            })
+            .await
     }
 
     /// Load a single chunks' dependencies.
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_chunk_providers(&self, index: GridPoint) {
+    async fn ensure_chunk_providers(&self, index: GridPoint) {
         let chunk_bounds = Self::Chunk::bounds(index);
-        self.ensure_all_deps(chunk_bounds);
+        self.ensure_all_deps(chunk_bounds).await;
     }
 
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
-    fn ensure_all_deps(&self, chunk_bounds: Bounds);
+    async fn ensure_all_deps(&self, chunk_bounds: Bounds);
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
@@ -76,6 +86,8 @@ pub trait Layer: Sized {
 /// The Padding is in game coordinates.
 pub struct LayerDependency<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> {
     layer: Arc<L>,
+    scheduler: Scheduler,
+    scheduled_nodes: RefCell<HashMap<GridPoint, Arc<dyn Future<Output = ()>>>>,
 }
 
 impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
@@ -86,23 +98,36 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 
     /// Eagerly load all chunks in the given bounds (in world coordinates).
-    pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
+    pub async fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
         let required_bounds = chunk_bounds.pad(self.padding());
-        self.layer.ensure_loaded_in_bounds(required_bounds);
+        self.layer.ensure_loaded_in_bounds(required_bounds).await;
     }
 
     /// Get a chunk or panic if it was not loaded previously
-    pub fn get(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer.rolling_grid().get(index).unwrap_or_else(|| {
-            panic!(
-                "chunk at {index:?} is not yet loaded in {}",
-                std::any::type_name::<L>()
-            )
-        })
+    pub async fn get(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
+        match self.layer.rolling_grid().get(index) {
+            Some(chunk) => chunk,
+            None => {
+                let guard = self
+                    .scheduled_nodes
+                    .borrow_mut()
+                    .entry(index)
+                    .or_insert_with(|| {
+                        let layer = self.layer.clone();
+                        Arc::new(async move { layer.create_and_register_chunk(index).await })
+                    })
+                    .clone();
+                guard.await;
+                self.layer.rolling_grid().get(index).unwrap()
+            }
+        }
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
-    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    pub fn get_range(
+        &self,
+        range: Bounds,
+    ) -> impl Iterator<Item = impl Future<Output = Ref<'_, L::Chunk>>> {
         let range = L::Chunk::bounds_to_grid(range);
         self.get_grid_range(range)
     }
@@ -111,7 +136,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     pub fn get_grid_range(
         &self,
         range: Bounds<GridIndex>,
-    ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    ) -> impl Iterator<Item = impl Future<Output = Ref<'_, L::Chunk>>> {
         range.iter().map(move |pos| self.get(pos))
     }
 }
@@ -135,7 +160,7 @@ pub trait Chunk: Sized {
     };
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self;
+    async fn compute(layer: &Self::Layer, index: GridPoint) -> Self;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint) -> Bounds {
