@@ -112,17 +112,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         &self,
         range: Bounds<GridIndex>,
     ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
-        self.layer
-            .rolling_grid()
-            .get_range(range)
-            .map(move |(_, chunk)| {
-                chunk.unwrap_or_else(|| {
-                    panic!(
-                        "a chunk in {range:?} is not yet loaded in {}",
-                        std::any::type_name::<L>()
-                    )
-                })
-            })
+        range.iter().map(move |pos| self.get(pos))
     }
 }
 
