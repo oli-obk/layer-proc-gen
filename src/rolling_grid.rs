@@ -96,25 +96,26 @@ impl<L: Layer> Cell<L> {
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    fn set(&mut self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) {
+    fn set(&mut self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) -> usize {
         let mut free = None;
-        for p in self.0.iter_mut() {
+        for (i, p) in self.0.iter_mut().enumerate() {
             if let Some(p) = p {
                 if p.pos == pos {
                     p.user_count += 1;
-                    return;
+                    return i;
                 }
             } else {
-                free = Some(p);
+                free = Some((i, p));
             }
         }
         match free {
-            Some(data) => {
+            Some((i, data)) => {
                 *data = Some(ActiveCell {
                     pos,
                     chunk: chunk(),
                     user_count: 0,
-                })
+                });
+                i
             }
             None => {
                 let points: Vec<_> = self.0.iter().flatten().map(|c| c.pos).collect();
@@ -157,8 +158,10 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    pub fn set(&self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) {
-        self.access(pos).borrow_mut().set(pos, chunk)
+    pub fn set(&self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) -> Ref<'_, L::Chunk> {
+        let cell = self.access(pos);
+        let i = cell.borrow_mut().set(pos, chunk);
+        Ref::map(cell.borrow(), |cell| &cell.0[i].as_ref().unwrap().chunk)
     }
 
     #[track_caller]

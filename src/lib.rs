@@ -51,7 +51,7 @@ pub trait Layer: Sized {
     /// Load a single chunk.
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn create_and_register_chunk(&self, index: GridPoint) {
+    fn create_and_register_chunk(&self, index: GridPoint) -> Ref<'_, Self::Chunk> {
         self.rolling_grid().set(index, || {
             let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
             let _guard = span.enter();
