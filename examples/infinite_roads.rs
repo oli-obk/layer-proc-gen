@@ -263,6 +263,7 @@ async fn main() {
         smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
         camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
         smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
+        smooth_cam_speed = smooth_cam_speed.clamp(0.0, 3.0);
         camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
         set_camera(&camera);
 
@@ -274,7 +275,6 @@ async fn main() {
             y: car.pos.y as i64,
         };
         let load_time = time::get_time();
-        player.ensure_loaded_in_bounds(Bounds::point(player_pos));
         let load_time = ((time::get_time() - load_time) * 10000.).round() / 10.;
         if load_time > 0. {
             last_load_time = load_time;
@@ -367,6 +367,9 @@ impl Car {
             self.rotation += f32::to_radians(1.) * self.speed;
         }
         self.speed = self.speed.clamp(-0.3, 2.0);
+        if is_key_down(KeyCode::LeftShift) {
+            self.speed *= 100.;
+        }
         self.pos += Vec2::from_angle(self.rotation) * self.speed;
     }
     fn draw(&self) {

@@ -91,14 +91,12 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer.ensure_loaded_in_bounds(required_bounds);
     }
 
-    /// Get a chunk or panic if it was not loaded previously
+    /// Get a chunk or generate it if it wasn't already cached.
     pub fn get(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer.rolling_grid().get(index).unwrap_or_else(|| {
-            panic!(
-                "chunk at {index:?} is not yet loaded in {}",
-                std::any::type_name::<L>()
-            )
-        })
+        self.layer
+            .rolling_grid()
+            .get(index)
+            .unwrap_or_else(|| self.layer.create_and_register_chunk(index))
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -107,11 +105,13 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.get_grid_range(range)
     }
 
-    /// Get an iterator over chunks as given by the bounds (in chunk grid indices)
+    /// Get an iterator over chunks as given by the bounds (in chunk grid indices).
+    /// Chunks will be generated on the fly.
     pub fn get_grid_range(
         &self,
         range: Bounds<GridIndex>,
     ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+        // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get(pos))
     }
 }
