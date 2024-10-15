@@ -24,49 +24,6 @@ pub trait Layer: Sized {
 
     fn rolling_grid(&self) -> &RollingGrid<Self>;
 
-    /// Returns the chunk that the position is in and the position within the chunk
-    fn get_chunk_of_grid_point(&self, pos: Point2d) -> Option<(Ref<'_, Self::Chunk>, Point2d)> {
-        let chunk_pos = RollingGrid::<Self>::pos_to_grid_pos(pos);
-        let chunk = self.rolling_grid().get(chunk_pos)?;
-        Some((chunk, RollingGrid::<Self>::pos_within_chunk(pos, chunk_pos)))
-    }
-
-    /// Load all dependencies' chunks and then compute our chunks.
-    /// May recursively cause the dependencies to load their deps and so on.
-    #[track_caller]
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_loaded_in_bounds(&self, bounds: Bounds<i64>) {
-        let indices = Self::Chunk::bounds_to_grid(bounds);
-        trace!(?indices);
-        let mut create_indices: Vec<_> = indices.iter().collect();
-        let center = indices.center();
-        // Sort by distance to center, so we load the closest ones first
-        // Difference to
-        create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
-        for index in create_indices {
-            self.create_and_register_chunk(index);
-        }
-    }
-
-    /// Load a single chunk.
-    #[track_caller]
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn create_and_register_chunk(&self, index: GridPoint) -> Ref<'_, Self::Chunk> {
-        self.rolling_grid().set(index, || {
-            let span = debug_span!("compute", ?index, layer = std::any::type_name::<Self>());
-            let _guard = span.enter();
-            self.ensure_chunk_providers(index);
-            Self::Chunk::compute(self, index)
-        })
-    }
-
-    /// Load a single chunks' dependencies.
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<Self>()))]
-    fn ensure_chunk_providers(&self, index: GridPoint) {
-        let chunk_bounds = Self::Chunk::bounds(index);
-        self.ensure_all_deps(chunk_bounds);
-    }
-
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 }
@@ -85,10 +42,42 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         Point2d::new(PADDING_X, PADDING_Y)
     }
 
-    /// Eagerly load all chunks in the given bounds (in world coordinates).
+    /// Load a single chunks' dependencies.
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
+    fn ensure_chunk_providers(&self, index: GridPoint) {
+        let chunk_bounds = L::Chunk::bounds(index);
+        self.layer.ensure_all_deps(chunk_bounds);
+    }
+
+    /// Load a single chunk.
+    #[track_caller]
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
+    fn create_and_register_chunk(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
+        self.layer.rolling_grid().set(index, || {
+            let span = debug_span!("compute", ?index, layer = std::any::type_name::<L>());
+            let _guard = span.enter();
+            self.ensure_chunk_providers(index);
+            L::Chunk::compute(&self.layer, index)
+        })
+    }
+
+    /// Eagerly compute all chunks in the given bounds (in world coordinates).
+    /// Load all dependencies' chunks and then compute our chunks.
+    /// May recursively cause the dependencies to load their deps and so on.
+    #[track_caller]
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
         let required_bounds = chunk_bounds.pad(self.padding());
-        self.layer.ensure_loaded_in_bounds(required_bounds);
+        let indices = L::Chunk::bounds_to_grid(required_bounds);
+        trace!(?indices);
+        let mut create_indices: Vec<_> = indices.iter().collect();
+        let center = indices.center();
+        // Sort by distance to center, so we load the closest ones first
+        // Difference to
+        create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
+        for index in create_indices {
+            self.create_and_register_chunk(index);
+        }
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
@@ -96,7 +85,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer
             .rolling_grid()
             .get(index)
-            .unwrap_or_else(|| self.layer.create_and_register_chunk(index))
+            .unwrap_or_else(|| self.create_and_register_chunk(index))
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)

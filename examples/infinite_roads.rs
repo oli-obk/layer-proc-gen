@@ -55,7 +55,7 @@ impl Chunk for LocationsChunk {
 /// Removes locations that are too close to others
 struct ReducedLocations {
     grid: RollingGrid<Self>,
-    raw_locations: LayerDependency<Locations, 256, 256>,
+    raw_locations: LayerDependency<Locations, 0, 0>,
 }
 
 #[derive(PartialEq, Debug)]
