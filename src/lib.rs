@@ -15,7 +15,8 @@ pub trait Layer: Sized {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
     type Chunk: Chunk<Layer = Self>;
 
-    /// Internal `RollingGrid` size.
+    /// Internal `RollingGrid` size. This is the area that should stay in memory at all times as it will
+    /// get requested a lot.
     const GRID_SIZE: Point2d<u8> = Point2d::splat(32);
     /// Internal `RollingGrid` overlap before the system panics. Basically scales the grid width/height by
     /// this number to allow moving across the grid width/height boundaries completely transparently.
