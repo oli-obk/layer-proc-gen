@@ -7,7 +7,7 @@
 use std::{cell::Ref, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
-use tracing::{debug_span, instrument, trace};
+use tracing::{instrument, trace};
 use vec2::{Bounds, Point2d};
 
 /// Each layer stores a RollingGrid of corresponding chunks.
@@ -53,11 +53,9 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     fn create_and_register_chunk(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer.rolling_grid().set(index, || {
-            let span = debug_span!("compute", ?index, layer = std::any::type_name::<L>());
-            let _guard = span.enter();
-            L::Chunk::compute(&self.layer, index)
-        })
+        self.layer
+            .rolling_grid()
+            .set(index, || L::Chunk::compute(&self.layer, index))
     }
 
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
