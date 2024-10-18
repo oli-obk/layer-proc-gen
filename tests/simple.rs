@@ -10,6 +10,7 @@ use tracing::*;
 #[derive(Default)]
 struct TheLayer(RollingGrid<Self>);
 #[expect(dead_code)]
+#[derive(Clone)]
 struct TheChunk(usize);
 
 impl Layer for TheLayer {
@@ -24,6 +25,7 @@ impl Layer for TheLayer {
 
 impl Chunk for TheChunk {
     type Layer = TheLayer;
+    type Store = Self;
 
     fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         TheChunk(0)
@@ -44,6 +46,7 @@ impl Player {
     }
 }
 
+#[derive(Clone)]
 struct PlayerChunk;
 
 impl Layer for Player {
@@ -64,6 +67,7 @@ impl Layer for Player {
 
 impl Chunk for PlayerChunk {
     type Layer = Player;
+    type Store = Self;
 
     const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
         Some(v) => Point2d::splat(v),
@@ -89,6 +93,7 @@ impl Map {
     }
 }
 
+#[derive(Clone)]
 struct MapChunk;
 
 impl Layer for Map {
@@ -109,6 +114,7 @@ impl Layer for Map {
 
 impl Chunk for MapChunk {
     type Layer = Map;
+    type Store = Self;
 
     const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
         Some(v) => Point2d::splat(v),

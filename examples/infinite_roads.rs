@@ -15,7 +15,7 @@ use tracing_helper::*;
 
 #[derive(Default)]
 struct Locations(RollingGrid<Self>);
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct LocationsChunk {
     points: [Point2d; 3],
 }
@@ -32,6 +32,7 @@ impl Layer for Locations {
 
 impl Chunk for LocationsChunk {
     type Layer = Locations;
+    type Store = Self;
 
     fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
         let chunk_bounds = Self::bounds(index);
@@ -58,7 +59,7 @@ struct ReducedLocations {
     raw_locations: LayerDependency<Locations, 0, 0>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct ReducedLocationsChunk {
     points: ArrayVec<Point2d, 3>,
 }
@@ -77,6 +78,7 @@ impl Layer for ReducedLocations {
 
 impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
+    type Store = Self;
 
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let mut points = ArrayVec::new();
@@ -125,8 +127,9 @@ impl Layer for Roads {
 
 impl Chunk for RoadsChunk {
     type Layer = Roads;
+    type Store = Arc<Self>;
 
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
+    fn compute(layer: &Self::Layer, index: GridPoint) -> Self::Store {
         let mut roads = vec![];
         let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
         let mut start = usize::MAX;
@@ -171,7 +174,7 @@ impl Chunk for RoadsChunk {
             }
         }
         debug!(?roads);
-        RoadsChunk { roads }
+        RoadsChunk { roads }.into()
     }
 }
 
@@ -189,7 +192,7 @@ impl Player {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 struct PlayerChunk;
 
 impl Layer for Player {
@@ -210,6 +213,7 @@ impl Layer for Player {
 
 impl Chunk for PlayerChunk {
     type Layer = Player;
+    type Store = Self;
 
     fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
         PlayerChunk

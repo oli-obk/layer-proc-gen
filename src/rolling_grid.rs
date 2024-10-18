@@ -3,7 +3,7 @@ use crate::{
     Chunk, Layer,
 };
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::ops::{Div, DivAssign};
 
 pub type GridPoint = crate::vec2::Point2d<GridIndex>;
@@ -69,7 +69,7 @@ struct Cell<L: Layer>(Box<[Option<ActiveCell<L>>]>);
 
 struct ActiveCell<L: Layer> {
     pos: GridPoint,
-    chunk: L::Chunk,
+    chunk: <L::Chunk as Chunk>::Store,
     user_count: usize,
 }
 
@@ -84,38 +84,39 @@ impl<L: Layer> Default for Cell<L> {
 }
 
 impl<L: Layer> Cell<L> {
-    fn get(&self, point: GridPoint) -> Option<&L::Chunk> {
+    fn get(&self, point: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
         self.0
             .iter()
             .filter_map(|e| e.as_ref())
             .find(|c| c.pos == point)
-            .map(|c| &c.chunk)
+            .map(|c| c.chunk.clone())
     }
 
     #[track_caller]
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    fn get_or_compute(&mut self, pos: GridPoint, layer: &L) -> usize {
+    fn get_or_compute(&mut self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
         let mut free = None;
-        for (i, p) in self.0.iter_mut().enumerate() {
+        for p in self.0.iter_mut() {
             if let Some(p) = p {
                 if p.pos == pos {
                     p.user_count += 1;
-                    return i;
+                    return p.chunk.clone();
                 }
             } else {
-                free = Some((i, p));
+                free = Some(p);
             }
         }
         match free {
-            Some((i, data)) => {
+            Some(data) => {
+                let chunk = L::Chunk::compute(layer, pos);
                 *data = Some(ActiveCell {
                     pos,
-                    chunk: L::Chunk::compute(layer, pos),
+                    chunk: chunk.clone(),
                     user_count: 0,
                 });
-                i
+                chunk
             }
             None => {
                 let points: Vec<_> = self.0.iter().flatten().map(|c| c.pos).collect();
@@ -153,15 +154,13 @@ impl<L: Layer> RollingGrid<L> {
         point.x + point.y * L::GRID_SIZE.x as usize
     }
 
-    pub fn get(&self, pos: GridPoint) -> Option<Ref<'_, L::Chunk>> {
-        Ref::filter_map(self.access(pos).borrow(), |cell| cell.get(pos)).ok()
+    pub fn get(&self, pos: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
+        self.access(pos).borrow().get(pos)
     }
 
     #[track_caller]
-    pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> Ref<'_, L::Chunk> {
-        let cell = self.access(pos);
-        let i = cell.borrow_mut().get_or_compute(pos, layer);
-        Ref::map(cell.borrow(), |cell| &cell.0[i].as_ref().unwrap().chunk)
+    pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
+        self.access(pos).borrow_mut().get_or_compute(pos, layer)
     }
 
     #[track_caller]

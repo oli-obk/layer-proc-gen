@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::{cell::Ref, num::NonZeroU16, sync::Arc};
+use std::{borrow::Borrow, num::NonZeroU16, sync::Arc};
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{instrument, trace};
@@ -70,7 +70,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get_or_compute(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
+    pub fn get_or_compute(&self, index: GridPoint) -> <L::Chunk as Chunk>::Store {
         self.layer
             .rolling_grid()
             .get(index)
@@ -78,7 +78,10 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
-    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    pub fn get_range(
+        &self,
+        range: Bounds,
+    ) -> impl Iterator<Item = <L::Chunk as Chunk>::Store> + '_ {
         let range = L::Chunk::bounds_to_grid(range);
         self.get_grid_range(range)
     }
@@ -88,7 +91,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     pub fn get_grid_range(
         &self,
         range: Bounds<GridIndex>,
-    ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
+    ) -> impl Iterator<Item = <L::Chunk as Chunk>::Store> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
@@ -106,6 +109,8 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
 pub trait Chunk: Sized {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer<Chunk = Self>;
+    type Store: Clone + Borrow<Self>;
+
     /// Width and height of the chunk
     const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256) {
         Some(v) => Point2d::splat(v),
@@ -113,7 +118,7 @@ pub trait Chunk: Sized {
     };
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self;
+    fn compute(layer: &Self::Layer, index: GridPoint) -> Self::Store;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint) -> Bounds {
