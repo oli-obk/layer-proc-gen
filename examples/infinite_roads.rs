@@ -80,7 +80,7 @@ impl Chunk for ReducedLocationsChunk {
 
     fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
         let mut points = ArrayVec::new();
-        'points: for p in layer.raw_locations.get(index).points {
+        'points: for p in layer.raw_locations.get_or_compute(index).points {
             for other in layer.raw_locations.get_range(Bounds {
                 min: p,
                 max: p + Point2d::splat(100),

@@ -49,15 +49,6 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer.ensure_all_deps(chunk_bounds);
     }
 
-    /// Load a single chunk.
-    #[track_caller]
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
-    fn create_and_register_chunk(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer
-            .rolling_grid()
-            .set(index, || L::Chunk::compute(&self.layer, index))
-    }
-
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
@@ -73,16 +64,17 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         // Difference to
         create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
         for index in create_indices {
-            self.create_and_register_chunk(index);
+            self.get_or_compute(index);
         }
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer
-            .rolling_grid()
-            .get(index)
-            .unwrap_or_else(|| self.create_and_register_chunk(index))
+    pub fn get_or_compute(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
+        self.layer.rolling_grid().get(index).unwrap_or_else(|| {
+            self.layer
+                .rolling_grid()
+                .set(index, || L::Chunk::compute(&self.layer, index))
+        })
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -98,7 +90,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         range: Bounds<GridIndex>,
     ) -> impl Iterator<Item = Ref<'_, L::Chunk>> {
         // TODO: first request generation, then iterate to increase parallelism
-        range.iter().map(move |pos| self.get(pos))
+        range.iter().map(move |pos| self.get_or_compute(pos))
     }
 }
 
