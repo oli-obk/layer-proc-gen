@@ -70,11 +70,10 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
 
     /// Get a chunk or generate it if it wasn't already cached.
     pub fn get_or_compute(&self, index: GridPoint) -> Ref<'_, L::Chunk> {
-        self.layer.rolling_grid().get(index).unwrap_or_else(|| {
-            self.layer
-                .rolling_grid()
-                .get_or_compute(index, || L::Chunk::compute(&self.layer, index))
-        })
+        self.layer
+            .rolling_grid()
+            .get(index)
+            .unwrap_or_else(|| self.layer.rolling_grid().get_or_compute(index, &self.layer))
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
