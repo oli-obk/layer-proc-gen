@@ -56,7 +56,6 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer.rolling_grid().set(index, || {
             let span = debug_span!("compute", ?index, layer = std::any::type_name::<L>());
             let _guard = span.enter();
-            self.ensure_chunk_providers(index);
             L::Chunk::compute(&self.layer, index)
         })
     }
