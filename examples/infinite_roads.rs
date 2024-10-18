@@ -372,7 +372,7 @@ impl Car {
         }
         self.speed = self.speed.clamp(-0.3, 2.0);
         if is_key_down(KeyCode::LeftShift) {
-            self.speed *= 100.;
+            self.speed *= 10.;
         }
         self.pos += Vec2::from_angle(self.rotation) * self.speed;
     }
