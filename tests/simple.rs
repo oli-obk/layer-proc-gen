@@ -125,7 +125,7 @@ fn create_layer() {
     let layer = TheLayer::default();
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
+        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
 }
 
 #[test]
@@ -133,13 +133,13 @@ fn double_assign_chunk() {
     let layer = TheLayer::default();
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
+        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(0));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
     layer
         .rolling_grid()
-        .set(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(1));
+        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), || TheChunk(1));
 }
 
 #[test]

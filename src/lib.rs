@@ -73,7 +73,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
         self.layer.rolling_grid().get(index).unwrap_or_else(|| {
             self.layer
                 .rolling_grid()
-                .set(index, || L::Chunk::compute(&self.layer, index))
+                .get_or_compute(index, || L::Chunk::compute(&self.layer, index))
         })
     }
 

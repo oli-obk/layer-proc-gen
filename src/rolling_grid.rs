@@ -96,7 +96,7 @@ impl<L: Layer> Cell<L> {
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    fn set(&mut self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) -> usize {
+    fn get_or_compute(&mut self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) -> usize {
         let mut free = None;
         for (i, p) in self.0.iter_mut().enumerate() {
             if let Some(p) = p {
@@ -158,9 +158,13 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    pub fn set(&self, pos: GridPoint, chunk: impl FnOnce() -> L::Chunk) -> Ref<'_, L::Chunk> {
+    pub fn get_or_compute(
+        &self,
+        pos: GridPoint,
+        chunk: impl FnOnce() -> L::Chunk,
+    ) -> Ref<'_, L::Chunk> {
         let cell = self.access(pos);
-        let i = cell.borrow_mut().set(pos, chunk);
+        let i = cell.borrow_mut().get_or_compute(pos, chunk);
         Ref::map(cell.borrow(), |cell| &cell.0[i].as_ref().unwrap().chunk)
     }
 
