@@ -246,6 +246,7 @@ async fn main() {
     let mut smooth_cam_rotation = 0.0;
     let mut smooth_cam_speed = 0.0;
     let mut screen_rotation = true;
+    let mut debug_zoom = 1.0;
 
     let mut car = Car {
         length: 7.,
@@ -264,6 +265,12 @@ async fn main() {
             left: is_key_down(KeyCode::A),
             right: is_key_down(KeyCode::D),
         });
+        if is_key_pressed(KeyCode::Up) {
+            debug_zoom += 1.0;
+        }
+        if is_key_pressed(KeyCode::Down) {
+            debug_zoom -= 1.0;
+        }
 
         if screen_rotation {
             smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
@@ -275,7 +282,9 @@ async fn main() {
         smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, 3.0);
         camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
+        camera.zoom /= debug_zoom;
         set_camera(&camera);
+        camera.zoom *= debug_zoom;
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
         let adjust = -car.pos.fract();
@@ -297,8 +306,41 @@ async fn main() {
             i64vec2(point.x, point.y).as_vec2() + adjust
         };
 
-        let vision_range = Bounds::point(player_pos).pad(player.roads.padding());
-        trace!(?vision_range);
+        let draw_bounds = |bounds: Bounds| {
+            if debug_zoom == 1.0 {
+                return;
+            }
+            let min = point2screen(bounds.min);
+            let max = point2screen(bounds.max);
+            draw_rectangle_lines(
+                min.x as f32,
+                min.y as f32,
+                (max.x - min.x) as f32,
+                (max.y - min.y) as f32,
+                debug_zoom,
+                PURPLE,
+            );
+        };
+
+        // TODO: make the vision range calculation robust for arbitrary algorithms.
+        let padding = camera.screen_to_world(Vec2::splat(0.)).length();
+        draw_circle_lines(0., 0., padding, debug_zoom, PURPLE);
+        let padding = Point2d::splat(padding as i64);
+        let mut vision_range = Bounds::point(player_pos).pad(padding);
+        draw_bounds(vision_range);
+        let padding = i64::from(RoadsChunk::SIZE.x.get());
+        vision_range.min.x -= padding;
+        vision_range.min.y -= padding;
+        draw_bounds(vision_range);
+
+        for index in Bounds::point(RoadsChunk::pos_to_grid(player_pos))
+            .pad(Point2d::splat(GridIndex(1)))
+            .iter()
+        {
+            let current_chunk = RoadsChunk::bounds(index);
+            draw_bounds(current_chunk);
+        }
+
         for roads in player.roads.get_range(vision_range) {
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
