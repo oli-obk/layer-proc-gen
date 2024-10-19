@@ -225,7 +225,7 @@ async fn main() {
     init_tracing();
 
     let mut camera = Camera2D::default();
-    let standard_zoom = Vec2::from(screen_size()).recip() * 2.;
+    let standard_zoom = Vec2::from(screen_size()).recip() * 4.;
     camera.zoom = standard_zoom;
     set_camera(&camera);
     let mut overlay_camera = Camera2D::default();
@@ -248,8 +248,8 @@ async fn main() {
     let mut screen_rotation = true;
 
     let mut car = Car {
-        length: 15.,
-        width: 10.,
+        length: 7.,
+        width: 5.,
         speed: 0.0,
         rotation: 0.0,
         pos: vec2(0., 0.),
