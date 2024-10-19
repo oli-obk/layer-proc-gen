@@ -245,6 +245,7 @@ async fn main() {
     let mut last_load_time = 0.;
     let mut smooth_cam_rotation = 0.0;
     let mut smooth_cam_speed = 0.0;
+    let mut screen_rotation = true;
 
     let mut car = Car {
         length: 15.,
@@ -264,8 +265,13 @@ async fn main() {
             right: is_key_down(KeyCode::D),
         });
 
-        smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
-        camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
+        if screen_rotation {
+            smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
+            camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
+        }
+        if is_key_pressed(KeyCode::Key1) {
+            screen_rotation = !screen_rotation;
+        }
         smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, 3.0);
         camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
