@@ -106,6 +106,9 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
 pub trait Chunk: Sized {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer<Chunk = Self>;
+
+    /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
+    /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
     type Store: Clone + Borrow<Self>;
 
     /// Width and height of the chunk
