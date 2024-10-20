@@ -216,9 +216,7 @@ async fn main() {
         locations: locations.into(),
     });
     let player = Player::new(roads.clone());
-    let mut smooth_cam_rotation = 0.0;
     let mut smooth_cam_speed = 0.0;
-    let mut screen_rotation = true;
     let mut debug_zoom = 1.0;
 
     let mut car = Car {
@@ -245,13 +243,6 @@ async fn main() {
             debug_zoom -= 1.0;
         }
 
-        if screen_rotation {
-            smooth_cam_rotation = smooth_cam_rotation * 0.99 + car.rotation * 0.01;
-            camera.rotation = -smooth_cam_rotation.to_degrees() - 90.;
-        }
-        if is_key_pressed(KeyCode::Key1) {
-            screen_rotation = !screen_rotation;
-        }
         smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
