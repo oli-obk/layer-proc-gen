@@ -17,7 +17,7 @@ pub struct RollingGrid<L: Layer> {
     /// The inner slice contains to `L::OVERLAP` entries,
     /// some of which are `None` if they have nevef been used
     /// so far.
-    grid: Box<[RefCell<Box<[Option<ActiveCell<L>>]>>]>,
+    grid: Box<[RefCell<Box<[ActiveCell<L>]>>]>,
 }
 
 impl<L: Layer> Default for RollingGrid<L> {
@@ -25,7 +25,7 @@ impl<L: Layer> Default for RollingGrid<L> {
         Self {
             grid: std::iter::repeat_with(|| {
                 RefCell::new(
-                    std::iter::repeat_with(|| None)
+                    std::iter::repeat_with(Default::default)
                         .take(L::GRID_OVERLAP.into())
                         .collect(),
                 )
@@ -84,6 +84,16 @@ struct ActiveCell<L: Layer> {
     last_access: SystemTime,
 }
 
+impl<L: Layer> Default for ActiveCell<L> {
+    fn default() -> Self {
+        Self {
+            pos: GridPoint::splat(GridIndex(i64::MIN)),
+            chunk: Default::default(),
+            last_access: UNIX_EPOCH,
+        }
+    }
+}
+
 impl<L: Layer> RollingGrid<L> {
     #[track_caller]
     /// If the position is already occupied with a block,
@@ -91,49 +101,28 @@ impl<L: Layer> RollingGrid<L> {
     /// Otherwise just increment the user count for that block.
     pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
         let now = SystemTime::now();
-        let mut last_access = UNIX_EPOCH;
         // Find existing entry and bump its last use, or
         // find an empty entry, or
         // find the least recently accessed entry.
         let mut access = self.access(pos);
-        let (mut i, mut rest) = access.split_first_mut().unwrap();
-        let mut none = None;
-        let mut free = &mut none;
-        loop {
-            if let Some(p) = i {
-                if p.pos == pos {
-                    p.last_access = now;
-                    return p.chunk.clone();
-                } else if last_access > p.last_access {
-                    if let Some((next, r)) = rest.split_first_mut() {
-                        i = next;
-                        rest = r;
-                        continue;
-                    } else {
-                        break;
-                    }
-                }
-                last_access = p.last_access;
-            } else {
-                last_access = UNIX_EPOCH;
+        let (mut free, mut rest) = access.split_first_mut().unwrap();
+        while let Some((p, r)) = rest.split_first_mut() {
+            rest = r;
+            if p.last_access == UNIX_EPOCH {
+            } else if p.pos == pos {
+                p.last_access = now;
+                return p.chunk.clone();
+            } else if free.last_access > p.last_access {
+                continue;
             }
-            free = i;
-            if let Some((next, r)) = rest.split_first_mut() {
-                i = next;
-                rest = r;
-            } else {
-                break;
-            }
+            free = p;
         }
         let chunk = L::Chunk::compute(layer, pos);
-        *free = Some(ActiveCell {
+        *free = ActiveCell {
             pos,
             chunk: chunk.clone(),
             last_access: now,
-        });
-        // Either an entry is newer than the unix epoch or it is None, so we can
-        // never end up writing to the borrowck-satisfying dummy option;
-        assert!(none.is_none(), "this value should never get used");
+        };
         chunk
     }
 
@@ -165,7 +154,7 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    fn access(&self, pos: GridPoint) -> RefMut<'_, Box<[Option<ActiveCell<L>>]>> {
+    fn access(&self, pos: GridPoint) -> RefMut<'_, Box<[ActiveCell<L>]>> {
         self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))

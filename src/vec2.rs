@@ -26,6 +26,7 @@ use std::{
     SubAssign,
     Div,
     DivAssign,
+    Default,
 )]
 #[mul(forward)]
 #[div(forward)]

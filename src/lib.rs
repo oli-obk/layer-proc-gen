@@ -109,7 +109,7 @@ pub trait Chunk: Sized {
 
     /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
     /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
-    type Store: Clone + Borrow<Self>;
+    type Store: Clone + Borrow<Self> + Default;
 
     /// Width and height of the chunk
     const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256) {

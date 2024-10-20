@@ -10,7 +10,7 @@ use tracing::*;
 #[derive(Default)]
 struct TheLayer(RollingGrid<Self>);
 #[expect(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct TheChunk(usize);
 
 impl Layer for TheLayer {
@@ -46,7 +46,7 @@ impl Player {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct PlayerChunk;
 
 impl Layer for Player {
@@ -93,7 +93,7 @@ impl Map {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct MapChunk;
 
 impl Layer for Map {

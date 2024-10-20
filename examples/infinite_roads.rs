@@ -15,7 +15,7 @@ use tracing_helper::*;
 
 #[derive(Default)]
 struct Locations(RollingGrid<Self>);
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 struct LocationsChunk {
     points: [Point2d; 3],
 }
@@ -59,7 +59,7 @@ struct ReducedLocations {
     raw_locations: LayerDependency<Locations, 0, 0>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 struct ReducedLocationsChunk {
     points: ArrayVec<Point2d, 3>,
 }
@@ -107,7 +107,7 @@ struct Roads {
     locations: LayerDependency<ReducedLocations, 256, 256>,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default)]
 struct RoadsChunk {
     roads: Vec<Line>,
 }
@@ -192,7 +192,7 @@ impl Player {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Default)]
 struct PlayerChunk;
 
 impl Layer for Player {
