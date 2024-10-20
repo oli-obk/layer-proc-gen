@@ -112,7 +112,7 @@ impl<L: Layer> RollingGrid<L> {
             } else if p.pos == pos {
                 p.last_access = now;
                 return p.chunk.clone();
-            } else if free.last_access > p.last_access {
+            } else if free.last_access < p.last_access {
                 continue;
             }
             free = p;
