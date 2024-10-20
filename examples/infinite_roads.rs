@@ -3,7 +3,7 @@ use ::tracing::{debug, trace};
 use arrayvec::ArrayVec;
 use macroquad::{prelude::*, time};
 use miniquad::window::screen_size;
-use std::{sync::Arc, vec};
+use std::{num::NonZeroU8, sync::Arc, vec};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -181,6 +181,8 @@ impl Chunk for RoadsChunk {
 struct Player {
     grid: RollingGrid<Self>,
     roads: LayerDependency<Roads, 1000, 1000>,
+    max_zoom_in: NonZeroU8,
+    max_zoom_out: NonZeroU8,
 }
 
 impl Player {
@@ -188,6 +190,8 @@ impl Player {
         Self {
             grid: Default::default(),
             roads: roads.into(),
+            max_zoom_in: NonZeroU8::new(3).unwrap(),
+            max_zoom_out: NonZeroU8::new(10).unwrap(),
         }
     }
 }
@@ -280,8 +284,10 @@ async fn main() {
             screen_rotation = !screen_rotation;
         }
         smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
-        smooth_cam_speed = smooth_cam_speed.clamp(0.0, 3.0);
-        camera.zoom = standard_zoom * (3.1 - smooth_cam_speed);
+        let max_zoom_in = f32::from(player.max_zoom_in.get());
+        let max_zoom_out = f32::from(player.max_zoom_out.get());
+        smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
+        camera.zoom = standard_zoom * (max_zoom_in + 1.0 / max_zoom_out - smooth_cam_speed);
         camera.zoom /= debug_zoom;
         set_camera(&camera);
         camera.zoom *= debug_zoom;
