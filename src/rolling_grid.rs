@@ -14,15 +14,24 @@ pub type GridPoint = crate::vec2::Point2d<GridIndex>;
 // TODO: avoid the box when generic const exprs allow for it
 // The Layer that contains it will already get put into an `Arc`
 pub struct RollingGrid<L: Layer> {
-    grid: Box<[RefCell<Cell<L>>]>,
+    /// The inner slice contains to `L::OVERLAP` entries,
+    /// some of which are `None` if they have nevef been used
+    /// so far.
+    grid: Box<[RefCell<Box<[Option<ActiveCell<L>>]>>]>,
 }
 
 impl<L: Layer> Default for RollingGrid<L> {
     fn default() -> Self {
         Self {
-            grid: std::iter::repeat_with(Default::default)
-                .take(usize::from(L::GRID_SIZE.x) * usize::from(L::GRID_SIZE.y))
-                .collect(),
+            grid: std::iter::repeat_with(|| {
+                RefCell::new(
+                    std::iter::repeat_with(|| None)
+                        .take(L::GRID_OVERLAP.into())
+                        .collect(),
+                )
+            })
+            .take(usize::from(L::GRID_SIZE.x) * usize::from(L::GRID_SIZE.y))
+            .collect(),
         }
     }
 }
@@ -69,24 +78,10 @@ impl DivAssign<i64> for GridIndex {
     }
 }
 
-/// Contains up to `L::OVERLAP` entries
-// TODO: avoid the box when generic const exprs allow for it
-struct Cell<L: Layer>(Box<[Option<ActiveCell<L>>]>);
-
 struct ActiveCell<L: Layer> {
     pos: GridPoint,
     chunk: <L::Chunk as Chunk>::Store,
     last_access: SystemTime,
-}
-
-impl<L: Layer> Default for Cell<L> {
-    fn default() -> Self {
-        Self(
-            std::iter::repeat_with(|| None)
-                .take(L::GRID_OVERLAP.into())
-                .collect(),
-        )
-    }
 }
 
 impl<L: Layer> RollingGrid<L> {
@@ -101,7 +96,7 @@ impl<L: Layer> RollingGrid<L> {
         // find an empty entry, or
         // find the least recently accessed entry.
         let mut access = self.access(pos);
-        let (mut i, mut rest) = access.0.split_first_mut().unwrap();
+        let (mut i, mut rest) = access.split_first_mut().unwrap();
         let mut none = None;
         let mut free = &mut none;
         loop {
@@ -170,7 +165,7 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    fn access(&self, pos: GridPoint) -> RefMut<'_, Cell<L>> {
+    fn access(&self, pos: GridPoint) -> RefMut<'_, Box<[Option<ActiveCell<L>>]>> {
         self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
