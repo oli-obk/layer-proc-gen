@@ -1,7 +1,7 @@
 use ::rand::prelude::*;
 use ::tracing::{debug, trace};
 use arrayvec::ArrayVec;
-use macroquad::{prelude::*, time};
+use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{num::NonZeroU8, sync::Arc, vec};
 
@@ -233,7 +233,7 @@ async fn main() {
     camera.zoom = standard_zoom;
     set_camera(&camera);
     let mut overlay_camera = Camera2D::default();
-    overlay_camera.zoom = standard_zoom;
+    overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
     let raw_locations = Arc::new(Locations::default());
@@ -246,7 +246,6 @@ async fn main() {
         locations: locations.into(),
     });
     let player = Player::new(roads.clone());
-    let mut last_load_time = 0.;
     let mut smooth_cam_rotation = 0.0;
     let mut smooth_cam_speed = 0.0;
     let mut screen_rotation = true;
@@ -299,12 +298,6 @@ async fn main() {
             x: car.pos.x as i64,
             y: car.pos.y as i64,
         };
-        let load_time = time::get_time();
-        let load_time = ((time::get_time() - load_time) * 10000.).round() / 10.;
-        if load_time > 0. {
-            last_load_time = load_time;
-        }
-
         clear_background(DARKGREEN);
 
         let point2screen = |point: Point2d| -> Vec2 {
@@ -368,13 +361,7 @@ async fn main() {
         car.draw();
 
         set_camera(&overlay_camera);
-        draw_text(
-            &format!("last load time: {last_load_time}ms"),
-            0.,
-            10.,
-            10.,
-            WHITE,
-        );
+        draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
 
         next_frame().await
     }
