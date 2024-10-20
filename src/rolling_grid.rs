@@ -89,29 +89,19 @@ impl<L: Layer> Default for Cell<L> {
     }
 }
 
-impl<L: Layer> Cell<L> {
-    fn get(&mut self, point: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
-        self.0
-            .iter_mut()
-            .filter_map(|e| e.as_mut())
-            .find(|c| c.pos == point)
-            .map(|c| {
-                c.last_access = SystemTime::now();
-                c.chunk.clone()
-            })
-    }
-
+impl<L: Layer> RollingGrid<L> {
     #[track_caller]
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    fn get_or_compute(&mut self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
+    pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
         let now = SystemTime::now();
         let mut last_access = UNIX_EPOCH;
         // Find existing entry and bump its last use, or
         // find an empty entry, or
         // find the least recently accessed entry.
-        let (mut i, mut rest) = self.0.split_first_mut().unwrap();
+        let mut access = self.access(pos);
+        let (mut i, mut rest) = access.0.split_first_mut().unwrap();
         let mut none = None;
         let mut free = &mut none;
         loop {
@@ -151,9 +141,7 @@ impl<L: Layer> Cell<L> {
         assert!(none.is_none(), "this value should never get used");
         chunk
     }
-}
 
-impl<L: Layer> RollingGrid<L> {
     pub const fn pos_within_chunk(pos: Point2d, chunk_pos: GridPoint) -> Point2d {
         pos.sub(
             Point2d {
@@ -179,15 +167,6 @@ impl<L: Layer> RollingGrid<L> {
         }
         .rem_euclid(L::GRID_SIZE);
         point.x + point.y * L::GRID_SIZE.x as usize
-    }
-
-    pub fn get(&self, pos: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
-        self.access(pos).get(pos)
-    }
-
-    #[track_caller]
-    pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
-        self.access(pos).get_or_compute(pos, layer)
     }
 
     #[track_caller]
