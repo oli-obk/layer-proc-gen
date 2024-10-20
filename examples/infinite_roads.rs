@@ -224,7 +224,7 @@ async fn main() {
         width: 5.,
         speed: 0.0,
         rotation: 0.0,
-        pos: vec2(0., 0.),
+        pos: vec2(1200., 300.),
         color: DARKPURPLE,
         braking: false,
     };
@@ -291,6 +291,7 @@ async fn main() {
         let padding = i64::from(RoadsChunk::SIZE.x.get());
         vision_range.min.x -= padding;
         vision_range.min.y -= padding;
+        vision_range.max.x += padding;
         draw_bounds(vision_range);
 
         for index in Bounds::point(RoadsChunk::pos_to_grid(player_pos))
@@ -323,10 +324,23 @@ async fn main() {
                 draw_line(line, 4., WHITE);
             }
         }
+
+        if debug_zoom != 1.0 {
+            for &road in player
+                .roads
+                .get_or_compute(RoadsChunk::pos_to_grid(player_pos))
+                .roads
+                .iter()
+            {
+                draw_line(road, debug_zoom, PURPLE)
+            }
+        }
+
         car.draw();
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
+        draw_text(&format!("pos: {:?}", player_pos), 0., 60., 30., WHITE);
 
         next_frame().await
     }
