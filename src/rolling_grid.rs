@@ -4,10 +4,9 @@ use crate::{
 };
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::{
-    cell::RefCell,
+    cell::{RefCell, RefMut},
     ops::{Div, DivAssign},
-    time::SystemTime,
-    time::UNIX_EPOCH,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub type GridPoint = crate::vec2::Point2d<GridIndex>;
@@ -88,12 +87,15 @@ impl<L: Layer> Default for Cell<L> {
 }
 
 impl<L: Layer> Cell<L> {
-    fn get(&self, point: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
+    fn get(&mut self, point: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
         self.0
-            .iter()
-            .filter_map(|e| e.as_ref())
+            .iter_mut()
+            .filter_map(|e| e.as_mut())
             .find(|c| c.pos == point)
-            .map(|c| c.chunk.clone())
+            .map(|c| {
+                c.last_access = SystemTime::now();
+                c.chunk.clone()
+            })
     }
 
     #[track_caller]
@@ -177,18 +179,19 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     pub fn get(&self, pos: GridPoint) -> Option<<L::Chunk as Chunk>::Store> {
-        self.access(pos).borrow().get(pos)
+        self.access(pos).get(pos)
     }
 
     #[track_caller]
     pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
-        self.access(pos).borrow_mut().get_or_compute(pos, layer)
+        self.access(pos).get_or_compute(pos, layer)
     }
 
     #[track_caller]
-    fn access(&self, pos: GridPoint) -> &RefCell<Cell<L>> {
+    fn access(&self, pos: GridPoint) -> RefMut<'_, Cell<L>> {
         self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
+            .borrow_mut()
     }
 }
