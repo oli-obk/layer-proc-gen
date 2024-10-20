@@ -11,6 +11,8 @@ use std::{
 
 pub type GridPoint = crate::vec2::Point2d<GridIndex>;
 
+// TODO: avoid the box when generic const exprs allow for it
+// The Layer that contains it will already get put into an `Arc`
 pub struct RollingGrid<L: Layer> {
     grid: Box<[RefCell<Cell<L>>]>,
 }
@@ -68,6 +70,7 @@ impl DivAssign<i64> for GridIndex {
 }
 
 /// Contains up to `L::OVERLAP` entries
+// TODO: avoid the box when generic const exprs allow for it
 struct Cell<L: Layer>(Box<[Option<ActiveCell<L>>]>);
 
 struct ActiveCell<L: Layer> {
