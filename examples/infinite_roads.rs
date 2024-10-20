@@ -179,7 +179,6 @@ impl Chunk for RoadsChunk {
 }
 
 struct Player {
-    grid: RollingGrid<Self>,
     roads: LayerDependency<Roads, 1000, 1000>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
@@ -188,39 +187,10 @@ struct Player {
 impl Player {
     pub fn new(roads: Arc<Roads>) -> Self {
         Self {
-            grid: Default::default(),
             roads: roads.into(),
             max_zoom_in: NonZeroU8::new(3).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
         }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone, Default)]
-struct PlayerChunk;
-
-impl Layer for Player {
-    type Chunk = PlayerChunk;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
-
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(3);
-
-    const GRID_OVERLAP: u8 = 2;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.roads.ensure_loaded_in_bounds(chunk_bounds);
-    }
-}
-
-impl Chunk for PlayerChunk {
-    type Layer = Player;
-    type Store = Self;
-
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
-        PlayerChunk
     }
 }
 
