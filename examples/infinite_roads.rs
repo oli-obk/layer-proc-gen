@@ -283,21 +283,21 @@ async fn main() {
         };
 
         // TODO: make the vision range calculation robust for arbitrary algorithms.
-        let padding = camera.screen_to_world(Vec2::splat(0.)).length();
+        let padding = camera.screen_to_world(Vec2::splat(0.));
+        draw_bounds(
+            Bounds::point(player_pos).pad(Point2d::new(padding.x as i64, padding.y as i64)),
+        );
+        let padding = padding.length();
         draw_circle_lines(0., 0., padding, debug_zoom, PURPLE);
         let padding = Point2d::splat(padding as i64);
         let mut vision_range = Bounds::point(player_pos).pad(padding);
-        draw_bounds(vision_range);
         let padding = i64::from(RoadsChunk::SIZE.x.get());
         vision_range.min.x -= padding;
         vision_range.min.y -= padding;
         vision_range.max.x += padding;
         draw_bounds(vision_range);
 
-        for index in Bounds::point(RoadsChunk::pos_to_grid(player_pos))
-            .pad(Point2d::splat(GridIndex(1)))
-            .iter()
-        {
+        for index in RoadsChunk::bounds_to_grid(vision_range).iter() {
             let current_chunk = RoadsChunk::bounds(index);
             draw_bounds(current_chunk);
         }
