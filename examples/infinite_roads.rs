@@ -225,14 +225,25 @@ impl Player {
     }
 
     pub fn vision_range(&self, half_screen_visible_area: Vec2) -> Bounds {
-        let padding = half_screen_visible_area.length();
-        let padding = Point2d::splat(padding as i64);
+        let padding = half_screen_visible_area.abs().ceil().as_i64vec2();
+        let padding = Point2d::new(padding.x as i64, padding.y as i64);
         let mut vision_range = Bounds::point(self.pos()).pad(padding);
-        let padding = i64::from(RoadsChunk::SIZE.x.get());
-        vision_range.min.x -= padding;
-        vision_range.min.y -= padding;
-        vision_range.max.x += padding;
+        let padding = RoadsChunk::SIZE.map(|p| i64::from(p.get()));
+        vision_range.min -= padding;
+        vision_range.max += padding;
         vision_range
+    }
+
+    pub fn road_chunks(&self, half_screen_visible_area: Vec2) -> impl Iterator<Item = GridPoint> {
+        RoadsChunk::bounds_to_grid(self.vision_range(half_screen_visible_area)).iter()
+    }
+
+    pub fn roads(
+        &self,
+        half_screen_visible_area: Vec2,
+    ) -> impl Iterator<Item = Arc<RoadsChunk>> + '_ {
+        self.road_chunks(half_screen_visible_area)
+            .map(|index| self.roads.get_or_compute(index))
     }
 }
 
@@ -317,10 +328,9 @@ async fn main() {
             );
         }
         let vision_range = player.vision_range(padding);
-        draw_circle_lines(0., 0., padding.length(), debug_zoom, PURPLE);
         draw_bounds(vision_range);
 
-        for index in RoadsChunk::bounds_to_grid(vision_range).iter() {
+        for index in player.road_chunks(padding) {
             let current_chunk = RoadsChunk::bounds(index);
             draw_bounds(current_chunk);
         }
@@ -331,7 +341,7 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        for roads in player.roads.get_range(vision_range) {
+        for roads in player.roads(padding) {
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);
@@ -342,7 +352,7 @@ async fn main() {
                 draw_circle(end.x, end.y, 2., WHITE);
             }
         }
-        for roads in player.roads.get_range(vision_range) {
+        for roads in player.roads(padding) {
             for &line in roads.roads.iter() {
                 draw_line(line, 4., WHITE);
             }
