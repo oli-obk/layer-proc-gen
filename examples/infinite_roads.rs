@@ -205,18 +205,34 @@ impl Player {
 
     /// Absolute position and function to go from a global position
     /// to one relative to the player.
-    pub fn pos(&self) -> (Point2d, impl Fn(Point2d) -> Vec2) {
+    pub fn point2screen(&self) -> impl Fn(Point2d) -> Vec2 {
+        let player_pos = self.pos();
+
+        // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
+        let adjust = self.car.pos.fract();
+        move |point: Point2d| -> Vec2 {
+            let point = point - player_pos;
+            i64vec2(point.x, point.y).as_vec2() - adjust
+        }
+    }
+
+    fn pos(&self) -> Point2d {
         let player_pos = Point2d {
             x: self.car.pos.x as i64,
             y: self.car.pos.y as i64,
         };
+        player_pos
+    }
 
-        // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
-        let adjust = -self.car.pos.fract();
-        (player_pos, move |point: Point2d| -> Vec2 {
-            let point = point - player_pos;
-            i64vec2(point.x, point.y).as_vec2() + adjust
-        })
+    pub fn vision_range(&self, half_screen_visible_area: Vec2) -> Bounds {
+        let padding = half_screen_visible_area.length();
+        let padding = Point2d::splat(padding as i64);
+        let mut vision_range = Bounds::point(self.pos()).pad(padding);
+        let padding = i64::from(RoadsChunk::SIZE.x.get());
+        vision_range.min.x -= padding;
+        vision_range.min.y -= padding;
+        vision_range.max.x += padding;
+        vision_range
     }
 }
 
@@ -269,7 +285,7 @@ async fn main() {
         set_camera(&camera);
         camera.zoom *= debug_zoom;
 
-        let (player_pos, point2screen) = player.pos();
+        let point2screen = player.point2screen();
         clear_background(DARKGREEN);
 
         let draw_bounds = |bounds: Bounds| {
@@ -290,17 +306,18 @@ async fn main() {
 
         // TODO: make the vision range calculation robust for arbitrary algorithms.
         let padding = camera.screen_to_world(Vec2::splat(0.));
-        draw_bounds(
-            Bounds::point(player_pos).pad(Point2d::new(padding.x as i64, padding.y as i64)),
-        );
-        let padding = padding.length();
-        draw_circle_lines(0., 0., padding, debug_zoom, PURPLE);
-        let padding = Point2d::splat(padding as i64);
-        let mut vision_range = Bounds::point(player_pos).pad(padding);
-        let padding = i64::from(RoadsChunk::SIZE.x.get());
-        vision_range.min.x -= padding;
-        vision_range.min.y -= padding;
-        vision_range.max.x += padding;
+        if debug_zoom != 1. {
+            draw_rectangle_lines(
+                -padding.x,
+                -padding.y,
+                padding.x * 2.,
+                padding.y * 2.,
+                debug_zoom,
+                PURPLE,
+            );
+        }
+        let vision_range = player.vision_range(padding);
+        draw_circle_lines(0., 0., padding.length(), debug_zoom, PURPLE);
         draw_bounds(vision_range);
 
         for index in RoadsChunk::bounds_to_grid(vision_range).iter() {
@@ -334,7 +351,7 @@ async fn main() {
         if debug_zoom != 1.0 {
             for &road in player
                 .roads
-                .get_or_compute(RoadsChunk::pos_to_grid(player_pos))
+                .get_or_compute(RoadsChunk::pos_to_grid(player.pos()))
                 .roads
                 .iter()
             {
@@ -346,7 +363,7 @@ async fn main() {
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
-        draw_text(&format!("pos: {:?}", player_pos), 0., 60., 30., WHITE);
+        draw_text(&format!("pos: {:?}", player.car.pos), 0., 60., 30., WHITE);
 
         next_frame().await
     }
