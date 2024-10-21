@@ -182,6 +182,7 @@ struct Player {
     roads: LayerDependency<Roads, 1000, 1000>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
+    car: Car,
 }
 
 impl Player {
@@ -190,7 +191,32 @@ impl Player {
             roads: roads.into(),
             max_zoom_in: NonZeroU8::new(3).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
+            car: Car {
+                length: 7.,
+                width: 5.,
+                speed: 0.0,
+                rotation: 0.0,
+                pos: vec2(1200., 300.),
+                color: DARKPURPLE,
+                braking: false,
+            },
         }
+    }
+
+    /// Absolute position and function to go from a global position
+    /// to one relative to the player.
+    pub fn pos(&self) -> (Point2d, impl Fn(Point2d) -> Vec2) {
+        let player_pos = Point2d {
+            x: self.car.pos.x as i64,
+            y: self.car.pos.y as i64,
+        };
+
+        // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
+        let adjust = -self.car.pos.fract();
+        (player_pos, move |point: Point2d| -> Vec2 {
+            let point = point - player_pos;
+            i64vec2(point.x, point.y).as_vec2() + adjust
+        })
     }
 }
 
@@ -215,21 +241,12 @@ async fn main() {
         grid: Default::default(),
         locations: locations.into(),
     });
-    let player = Player::new(roads.clone());
+    let mut player = Player::new(roads.clone());
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
 
-    let mut car = Car {
-        length: 7.,
-        width: 5.,
-        speed: 0.0,
-        rotation: 0.0,
-        pos: vec2(1200., 300.),
-        color: DARKPURPLE,
-        braking: false,
-    };
     loop {
-        car.update(Actions {
+        player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
             reverse: is_key_down(KeyCode::S),
             brake: is_key_down(KeyCode::Space),
@@ -243,7 +260,7 @@ async fn main() {
             debug_zoom -= 1.0;
         }
 
-        smooth_cam_speed = smooth_cam_speed * 0.99 + car.speed * 0.01;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.speed * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
@@ -252,19 +269,8 @@ async fn main() {
         set_camera(&camera);
         camera.zoom *= debug_zoom;
 
-        // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
-        let adjust = -car.pos.fract();
-
-        let player_pos = Point2d {
-            x: car.pos.x as i64,
-            y: car.pos.y as i64,
-        };
+        let (player_pos, point2screen) = player.pos();
         clear_background(DARKGREEN);
-
-        let point2screen = |point: Point2d| -> Vec2 {
-            let point = point - player_pos;
-            i64vec2(point.x, point.y).as_vec2() + adjust
-        };
 
         let draw_bounds = |bounds: Bounds| {
             if debug_zoom == 1.0 {
@@ -336,7 +342,7 @@ async fn main() {
             }
         }
 
-        car.draw();
+        player.car.draw();
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
