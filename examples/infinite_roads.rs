@@ -301,11 +301,17 @@ async fn main() {
             draw_bounds(current_chunk);
         }
 
+        let draw_line = |line: Line, thickness, color| {
+            let start = point2screen(line.start);
+            let end = point2screen(line.end);
+            draw_line(start.x, start.y, end.x, end.y, thickness, color);
+        };
+
         for roads in player.roads.get_range(vision_range) {
             for &line in roads.roads.iter() {
                 let start = point2screen(line.start);
                 let end = point2screen(line.end);
-                draw_line(start.x, start.y, end.x, end.y, 40., GRAY);
+                draw_line(line, 40., GRAY);
                 draw_circle(start.x, start.y, 20., GRAY);
                 draw_circle(start.x, start.y, 2., WHITE);
                 draw_circle(end.x, end.y, 20., GRAY);
@@ -314,9 +320,7 @@ async fn main() {
         }
         for roads in player.roads.get_range(vision_range) {
             for &line in roads.roads.iter() {
-                let start = point2screen(line.start);
-                let end = point2screen(line.end);
-                draw_line(start.x, start.y, end.x, end.y, 4., WHITE);
+                draw_line(line, 4., WHITE);
             }
         }
         car.draw();
