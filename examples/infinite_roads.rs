@@ -3,7 +3,12 @@ use ::tracing::{debug, trace};
 use arrayvec::ArrayVec;
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
-use std::{num::NonZeroU8, sync::Arc, vec};
+use std::{
+    cell::{Cell, Ref, RefCell},
+    num::NonZeroU8,
+    sync::Arc,
+    vec,
+};
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -183,6 +188,8 @@ struct Player {
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
+    last_grid_vision_range: Cell<Bounds<GridIndex>>,
+    roads_for_last_grid_vision_range: RefCell<Vec<Line>>,
 }
 
 impl Player {
@@ -200,6 +207,8 @@ impl Player {
                 color: DARKPURPLE,
                 braking: false,
             },
+            last_grid_vision_range: Bounds::point(Point2d::splat(GridIndex(0))).into(),
+            roads_for_last_grid_vision_range: vec![].into(),
         }
     }
 
@@ -234,16 +243,21 @@ impl Player {
         vision_range
     }
 
-    pub fn road_chunks(&self, half_screen_visible_area: Vec2) -> impl Iterator<Item = GridPoint> {
-        RoadsChunk::bounds_to_grid(self.vision_range(half_screen_visible_area)).iter()
+    pub fn grid_vision_range(&self, half_screen_visible_area: Vec2) -> Bounds<GridIndex> {
+        RoadsChunk::bounds_to_grid(self.vision_range(half_screen_visible_area))
     }
 
-    pub fn roads(
-        &self,
-        half_screen_visible_area: Vec2,
-    ) -> impl Iterator<Item = Arc<RoadsChunk>> + '_ {
-        self.road_chunks(half_screen_visible_area)
-            .map(|index| self.roads.get_or_compute(index))
+    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, [Line]> {
+        let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
+        if grid_vision_range != self.last_grid_vision_range.get() {
+            self.last_grid_vision_range.set(grid_vision_range);
+            let mut roads = self.roads_for_last_grid_vision_range.borrow_mut();
+            roads.clear();
+            for index in grid_vision_range.iter() {
+                roads.extend_from_slice(&self.roads.get_or_compute(index).roads);
+            }
+        }
+        Ref::map(self.roads_for_last_grid_vision_range.borrow(), |r| &**r)
     }
 }
 
@@ -330,7 +344,7 @@ async fn main() {
         let vision_range = player.vision_range(padding);
         draw_bounds(vision_range);
 
-        for index in player.road_chunks(padding) {
+        for index in player.grid_vision_range(padding).iter() {
             let current_chunk = RoadsChunk::bounds(index);
             draw_bounds(current_chunk);
         }
@@ -341,21 +355,17 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        for roads in player.roads(padding) {
-            for &line in roads.roads.iter() {
-                let start = point2screen(line.start);
-                let end = point2screen(line.end);
-                draw_line(line, 40., GRAY);
-                draw_circle(start.x, start.y, 20., GRAY);
-                draw_circle(start.x, start.y, 2., WHITE);
-                draw_circle(end.x, end.y, 20., GRAY);
-                draw_circle(end.x, end.y, 2., WHITE);
-            }
+        for &line in player.roads(padding).iter() {
+            let start = point2screen(line.start);
+            let end = point2screen(line.end);
+            draw_line(line, 40., GRAY);
+            draw_circle(start.x, start.y, 20., GRAY);
+            draw_circle(start.x, start.y, 2., WHITE);
+            draw_circle(end.x, end.y, 20., GRAY);
+            draw_circle(end.x, end.y, 2., WHITE);
         }
-        for roads in player.roads(padding) {
-            for &line in roads.roads.iter() {
-                draw_line(line, 4., WHITE);
-            }
+        for &line in player.roads(padding).iter() {
+            draw_line(line, 4., WHITE);
         }
 
         if debug_zoom != 1.0 {
