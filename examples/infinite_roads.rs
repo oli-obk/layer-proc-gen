@@ -7,7 +7,6 @@ use std::{
     cell::{Cell, Ref, RefCell},
     num::NonZeroU8,
     sync::Arc,
-    vec,
 };
 
 use layer_proc_gen::*;
@@ -40,22 +39,31 @@ impl Chunk for LocationsChunk {
     type Store = Self;
 
     fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
-        let chunk_bounds = Self::bounds(index);
-        trace!(?chunk_bounds);
-        let mut x = SmallRng::seed_from_u64(index.x.0 as u64);
-        let mut y = SmallRng::seed_from_u64(index.y.0 as u64);
-        let mut seed = [0; 32];
-        x.fill_bytes(&mut seed[..16]);
-        y.fill_bytes(&mut seed[16..]);
-        let mut rng = SmallRng::from_seed(seed);
-        let points = [
-            chunk_bounds.sample(&mut rng),
-            chunk_bounds.sample(&mut rng),
-            chunk_bounds.sample(&mut rng),
-        ];
-        debug!(?points);
-        LocationsChunk { points }
+        LocationsChunk {
+            points: generate_points::<Self, 3>(index, 0),
+        }
     }
+}
+
+fn generate_points<C: Chunk + 'static, const N: usize>(
+    index: GridPoint,
+    salt: u64,
+) -> [Point2d; N] {
+    let chunk_bounds = C::bounds(index);
+    trace!(?chunk_bounds);
+    let x = SmallRng::seed_from_u64(index.x.0 as u64);
+    let y = SmallRng::seed_from_u64(index.y.0 as u64);
+    let salt = SmallRng::seed_from_u64(salt);
+    let mut seed = [0; 32];
+    for mut rng in [x, y, salt] {
+        let mut tmp = [0; 32];
+        rng.fill_bytes(&mut tmp);
+        for (seed, tmp) in seed.iter_mut().zip(tmp.iter()) {
+            *seed ^= *tmp;
+        }
+    }
+    let mut rng = SmallRng::from_seed(seed);
+    std::array::from_fn(|_| chunk_bounds.sample(&mut rng))
 }
 
 /// Removes locations that are too close to others
