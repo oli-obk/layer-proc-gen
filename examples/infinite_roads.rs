@@ -5,7 +5,7 @@ use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
     cell::{Cell, Ref, RefCell},
-    num::NonZeroU8,
+    num::{NonZeroU16, NonZeroU8},
     sync::Arc,
 };
 
@@ -16,6 +16,39 @@ use vec2::{Bounds, Line, Num, Point2d};
 #[path = "../tests/tracing.rs"]
 mod tracing_helper;
 use tracing_helper::*;
+
+#[derive(Default)]
+struct Cities(RollingGrid<Self>);
+#[derive(PartialEq, Debug, Clone, Default)]
+struct CitiesChunk {
+    points: [Point2d; 3],
+}
+
+impl Layer for Cities {
+    type Chunk = CitiesChunk;
+
+    fn rolling_grid(&self) -> &RollingGrid<Self> {
+        &self.0
+    }
+
+    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
+}
+
+impl Chunk for CitiesChunk {
+    type Layer = Cities;
+    type Store = Self;
+
+    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(u16::MAX) {
+        Some(v) => Point2d::splat(v),
+        None => unreachable!(),
+    };
+
+    fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        Self {
+            points: generate_points::<Self, 3>(index, 1),
+        }
+    }
+}
 
 #[derive(Default)]
 struct Locations(RollingGrid<Self>);
@@ -70,6 +103,7 @@ fn generate_points<C: Chunk + 'static, const N: usize>(
 struct ReducedLocations {
     grid: RollingGrid<Self>,
     raw_locations: LayerDependency<Locations, 0, 0>,
+    cities: LayerDependency<Cities, 0, 0>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -86,6 +120,7 @@ impl Layer for ReducedLocations {
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
+        self.cities.ensure_loaded_in_bounds(chunk_bounds);
     }
 }
 
@@ -94,6 +129,16 @@ impl Chunk for ReducedLocationsChunk {
     type Store = Self;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        let bounds = Self::bounds(index);
+        let center = bounds.center();
+        if layer.cities.get_range(bounds).all(|cities| {
+            cities
+                .points
+                .iter()
+                .all(|&city| center.dist_squared(city) > 1000 * 1000)
+        }) {
+            return Self::default();
+        }
         let mut points = ArrayVec::new();
         'points: for p in layer
             .raw_locations
@@ -297,17 +342,28 @@ async fn main() {
     overlay_camera.offset = vec2(-1., 1.);
 
     let raw_locations = Arc::new(Locations::default());
+    let cities = Arc::new(Cities::default());
     let locations = Arc::new(ReducedLocations {
         grid: Default::default(),
         raw_locations: raw_locations.into(),
+        cities: cities.into(),
     });
     let roads = Arc::new(Roads {
         grid: Default::default(),
-        locations: locations.into(),
+        locations: locations.clone().into(),
     });
     let mut player = Player::new(roads.clone());
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
+
+    let start = locations
+        .cities
+        .get_range(Bounds::point(player.pos()))
+        .next()
+        .unwrap()
+        .points[0];
+    player.car.pos.x = start.x as _;
+    player.car.pos.y = start.y as _;
 
     loop {
         player.car.update(Actions {
