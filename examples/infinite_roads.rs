@@ -147,54 +147,60 @@ impl Chunk for RoadsChunk {
     type Store = Arc<Self>;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
-        let mut roads = vec![];
-        let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
-        let mut start = usize::MAX;
-        let mut n = usize::MAX;
-        for (i, grid) in layer
-            .locations
-            .get_grid_range(
-                Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
-            )
-            .enumerate()
-        {
-            if i == 4 {
-                start = points.len();
-                n = grid.points.len();
-            }
-            points.extend(grid.points.iter().copied());
-        }
-        // We only care about the roads starting from the center grid cell, as the others are not necessarily correct,
-        // or will be computed by the other grid cells.
-        // The others may connect the outer edges of the current grid range and thus connect roads that
-        // don't satisfy the algorithm.
-        // This algorithm is https://en.m.wikipedia.org/wiki/Relative_neighborhood_graph adjusted for
-        // grid-based computation. It's a brute force implementation, but I think that is faster than going through
-        // a Delaunay triangulation first, as instead of (3*9)^3 = 19683 inner loop iterations we have only
-        // 3 * (2 + 1 + 3*4) * 3*9 = 1215
-        // FIXME: cache distance computations as we do them, we can save 1215-(3*9^3)/2 = 850 distance computations (70%) and figure
-        // out how to cache them across grid cells (along with removing them from the cache when they aren't needed anymore)
-        // as the neighboring cells will be redoing the same distance computations.
-        for (i, &a) in points.iter().enumerate().skip(start).take(n) {
-            for &b in points.iter().skip(i + 1) {
-                let dist = a.dist_squared(b);
-                if points.iter().copied().all(|c| {
-                    if a == c || b == c {
-                        return true;
-                    }
-                    // FIXME: make cheaper by already bailing if `x*x` is larger than dist,
-                    // to avoid computing `y*y`.
-                    let a_dist = a.dist_squared(c);
-                    let b_dist = c.dist_squared(b);
-                    dist < a_dist || dist < b_dist
-                }) {
-                    roads.push(a.to(b))
-                }
-            }
-        }
-        debug!(?roads);
+        let roads = gen_roads(
+            layer
+                .locations
+                .get_grid_range(
+                    Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
+                )
+                .map(|chunk| chunk.points),
+        );
         RoadsChunk { roads }.into()
     }
+}
+
+fn gen_roads<const N: usize>(chunks: impl Iterator<Item = ArrayVec<Point2d, N>>) -> Vec<Line> {
+    let mut roads = vec![];
+    let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
+    let mut start = usize::MAX;
+    let mut n = usize::MAX;
+    for (i, grid) in chunks.enumerate() {
+        if i == 4 {
+            start = points.len();
+            n = grid.len();
+        }
+        points.extend(grid.iter().copied());
+    }
+    // We only care about the roads starting from the center grid cell, as the others are not necessarily correct,
+    // or will be computed by the other grid cells.
+    // The others may connect the outer edges of the current grid range and thus connect roads that
+    // don't satisfy the algorithm.
+    // This algorithm is https://en.m.wikipedia.org/wiki/Relative_neighborhood_graph adjusted for
+    // grid-based computation. It's a brute force implementation, but I think that is faster than going through
+    // a Delaunay triangulation first, as instead of (3*9)^3 = 19683 inner loop iterations we have only
+    // 3 * (2 + 1 + 3*4) * 3*9 = 1215
+    // FIXME: cache distance computations as we do them, we can save 1215-(3*9^3)/2 = 850 distance computations (70%) and figure
+    // out how to cache them across grid cells (along with removing them from the cache when they aren't needed anymore)
+    // as the neighboring cells will be redoing the same distance computations.
+    for (i, &a) in points.iter().enumerate().skip(start).take(n) {
+        for &b in points.iter().skip(i + 1) {
+            let dist = a.dist_squared(b);
+            if points.iter().copied().all(|c| {
+                if a == c || b == c {
+                    return true;
+                }
+                // FIXME: make cheaper by already bailing if `x*x` is larger than dist,
+                // to avoid computing `y*y`.
+                let a_dist = a.dist_squared(c);
+                let b_dist = c.dist_squared(b);
+                dist < a_dist || dist < b_dist
+            }) {
+                roads.push(a.to(b))
+            }
+        }
+    }
+    debug!(?roads);
+    roads
 }
 
 struct Player {
