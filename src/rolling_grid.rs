@@ -2,14 +2,14 @@ use crate::{
     vec2::{Num, Point2d},
     Chunk, Layer,
 };
-use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use std::{
     cell::{Cell, RefCell},
+    marker::PhantomData,
     ops::{Div, DivAssign},
     time::{SystemTime, UNIX_EPOCH},
 };
 
-pub type GridPoint = crate::vec2::Point2d<GridIndex>;
+pub type GridPoint<C> = crate::vec2::Point2d<GridIndex<C>>;
 
 // TODO: avoid the box when generic const exprs allow for it
 // The Layer that contains it will already get put into an `Arc`
@@ -34,35 +34,114 @@ impl<L: Layer> Default for RollingGrid<L> {
     }
 }
 
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    AddAssign,
-    Add,
-    Mul,
-    MulAssign,
-    Sub,
-    SubAssign,
-    Div,
-    DivAssign,
-    Debug,
-)]
-#[mul(forward)]
-#[div(forward)]
-#[mul_assign(forward)]
-#[div_assign(forward)]
-pub struct GridIndex(pub i64);
+pub struct GridIndex<C>(pub i64, PhantomData<C>);
 
-impl Num for GridIndex {
-    const ONE: GridIndex = GridIndex(1);
-    const TWO: GridIndex = GridIndex(2);
+impl<C> Div for GridIndex<C> {
+    type Output = Self;
+
+    fn div(mut self, rhs: Self) -> Self::Output {
+        self /= rhs;
+        self
+    }
 }
 
-impl Div<i64> for GridIndex {
+impl<C> DivAssign for GridIndex<C> {
+    fn div_assign(&mut self, rhs: Self) {
+        self.0 /= rhs.0;
+    }
+}
+
+impl<C> std::ops::SubAssign for GridIndex<C> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
+impl<C> std::ops::Sub for GridIndex<C> {
+    type Output = Self;
+
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        self -= rhs;
+        self
+    }
+}
+
+impl<C> std::ops::Mul for GridIndex<C> {
+    type Output = Self;
+
+    fn mul(mut self, rhs: Self) -> Self::Output {
+        self *= rhs;
+        self
+    }
+}
+
+impl<C> std::ops::MulAssign for GridIndex<C> {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.0 *= rhs.0;
+    }
+}
+
+impl<C> std::ops::Add for GridIndex<C> {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl<C> std::ops::AddAssign for GridIndex<C> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl<C> Ord for GridIndex<C> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<C> PartialOrd for GridIndex<C> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl<C> Eq for GridIndex<C> {}
+
+impl<C> PartialEq for GridIndex<C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<C> std::fmt::Debug for GridIndex<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("GridIndex").field(&self.0).finish()
+    }
+}
+
+impl<C> Copy for GridIndex<C> {}
+
+impl<C> Clone for GridIndex<C> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<C> GridIndex<C> {
+    pub const fn from_raw(i: i64) -> Self {
+        Self(i, PhantomData)
+    }
+}
+
+impl<C> Num for GridIndex<C> {
+    const ONE: Self = Self::from_raw(1);
+    const TWO: Self = Self::from_raw(2);
+}
+
+impl<C> Div<i64> for GridIndex<C> {
     type Output = Self;
     fn div(mut self, rhs: i64) -> Self::Output {
         self /= rhs;
@@ -70,14 +149,24 @@ impl Div<i64> for GridIndex {
     }
 }
 
-impl DivAssign<i64> for GridIndex {
+impl<C> DivAssign<i64> for GridIndex<C> {
     fn div_assign(&mut self, rhs: i64) {
         self.0 /= rhs;
     }
 }
 
+impl<C: Chunk> GridPoint<C> {
+    pub fn into_same_chunk_size<D: Chunk>(self) -> GridPoint<D> {
+        const { assert!(C::SIZE.x.get() == D::SIZE.x.get() && C::SIZE.y.get() == D::SIZE.y.get()) };
+        GridPoint {
+            x: GridIndex::from_raw(self.x.0),
+            y: GridIndex::from_raw(self.y.0),
+        }
+    }
+}
+
 struct ActiveCell<L: Layer> {
-    pos: Cell<GridPoint>,
+    pos: Cell<GridPoint<L::Chunk>>,
     chunk: RefCell<<L::Chunk as Chunk>::Store>,
     last_access: Cell<SystemTime>,
 }
@@ -85,7 +174,7 @@ struct ActiveCell<L: Layer> {
 impl<L: Layer> Default for ActiveCell<L> {
     fn default() -> Self {
         Self {
-            pos: GridPoint::splat(GridIndex(i64::MIN)).into(),
+            pos: GridPoint::splat(GridIndex::from_raw(i64::MIN)).into(),
             chunk: Default::default(),
             last_access: UNIX_EPOCH.into(),
         }
@@ -97,7 +186,11 @@ impl<L: Layer> RollingGrid<L> {
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    pub fn get_or_compute(&self, pos: GridPoint, layer: &L) -> <L::Chunk as Chunk>::Store {
+    pub fn get_or_compute(
+        &self,
+        pos: GridPoint<L::Chunk>,
+        layer: &L,
+    ) -> <L::Chunk as Chunk>::Store {
         let now = SystemTime::now();
         // Find existing entry and bump its last use, or
         // find an empty entry, or
@@ -121,7 +214,7 @@ impl<L: Layer> RollingGrid<L> {
         chunk
     }
 
-    pub const fn pos_within_chunk(pos: Point2d, chunk_pos: GridPoint) -> Point2d {
+    pub const fn pos_within_chunk(pos: Point2d, chunk_pos: GridPoint<L::Chunk>) -> Point2d {
         pos.sub(
             Point2d {
                 x: chunk_pos.x.0,
@@ -131,15 +224,15 @@ impl<L: Layer> RollingGrid<L> {
         )
     }
 
-    pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint {
+    pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<L::Chunk> {
         let pos = pos.div_euclid(L::Chunk::SIZE);
         GridPoint {
-            x: GridIndex(pos.x),
-            y: GridIndex(pos.y),
+            x: GridIndex::from_raw(pos.x),
+            y: GridIndex::from_raw(pos.y),
         }
     }
 
-    const fn index_of_point(point: GridPoint) -> usize {
+    const fn index_of_point(point: GridPoint<L::Chunk>) -> usize {
         let point = Point2d {
             x: point.x.0,
             y: point.y.0,
@@ -149,7 +242,7 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     #[track_caller]
-    fn access(&self, pos: GridPoint) -> &[ActiveCell<L>] {
+    fn access(&self, pos: GridPoint<L::Chunk>) -> &[ActiveCell<L>] {
         self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))

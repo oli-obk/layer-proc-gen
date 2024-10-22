@@ -27,7 +27,7 @@ impl Chunk for TheChunk {
     type Layer = TheLayer;
     type Store = Self;
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
     }
 }
@@ -74,7 +74,7 @@ impl Chunk for PlayerChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         PlayerChunk
     }
 }
@@ -121,7 +121,7 @@ impl Chunk for MapChunk {
         None => std::unreachable!(),
     };
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint) -> Self {
+    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         MapChunk
     }
 }
@@ -129,23 +129,26 @@ impl Chunk for MapChunk {
 #[test]
 fn create_layer() {
     let layer = TheLayer::default();
-    layer
-        .rolling_grid()
-        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), &layer);
+    layer.rolling_grid().get_or_compute(
+        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
+        &layer,
+    );
 }
 
 #[test]
 fn double_assign_chunk() {
     let layer = TheLayer::default();
-    layer
-        .rolling_grid()
-        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), &layer);
+    layer.rolling_grid().get_or_compute(
+        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
+        &layer,
+    );
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
-    layer
-        .rolling_grid()
-        .get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex), &layer);
+    layer.rolling_grid().get_or_compute(
+        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
+        &layer,
+    );
 }
 
 #[test]

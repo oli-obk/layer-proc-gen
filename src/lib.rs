@@ -45,7 +45,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
 
     /// Load a single chunks' dependencies.
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
-    fn ensure_chunk_providers(&self, index: GridPoint) {
+    fn ensure_chunk_providers(&self, index: GridPoint<L::Chunk>) {
         let chunk_bounds = L::Chunk::bounds(index);
         self.layer.ensure_all_deps(chunk_bounds);
     }
@@ -70,7 +70,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get_or_compute(&self, index: GridPoint) -> <L::Chunk as Chunk>::Store {
+    pub fn get_or_compute(&self, index: GridPoint<L::Chunk>) -> <L::Chunk as Chunk>::Store {
         self.layer.rolling_grid().get_or_compute(index, &self.layer)
     }
 
@@ -87,7 +87,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     /// Chunks will be generated on the fly.
     pub fn get_grid_range(
         &self,
-        range: Bounds<GridIndex>,
+        range: Bounds<GridIndex<L::Chunk>>,
     ) -> impl Iterator<Item = <L::Chunk as Chunk>::Store> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
@@ -103,7 +103,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
 }
 
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.
-pub trait Chunk: Sized {
+pub trait Chunk: Sized + 'static {
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer<Chunk = Self>;
 
@@ -118,11 +118,11 @@ pub trait Chunk: Sized {
     };
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self::Store;
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store;
 
     /// Get the bounds for the chunk at the given index
-    fn bounds(index: GridPoint) -> Bounds {
-        let min = index.map(|GridIndex(i)| i) * Point2d::from(Self::SIZE);
+    fn bounds(index: GridPoint<Self>) -> Bounds {
+        let min = index.map(|i| i.0) * Point2d::from(Self::SIZE);
         Bounds {
             min,
             max: min + Self::SIZE.into(),
@@ -130,13 +130,15 @@ pub trait Chunk: Sized {
     }
 
     /// Get the grids that are touched by the given bounds.
-    fn bounds_to_grid(bounds: Bounds) -> Bounds<GridIndex> {
+    fn bounds_to_grid(bounds: Bounds) -> Bounds<GridIndex<Self>> {
         bounds.map(Self::pos_to_grid)
     }
 
     /// Get the grid the position is in
-    fn pos_to_grid(point: Point2d) -> GridPoint {
-        point.div_euclid(Self::SIZE).map(GridIndex)
+    fn pos_to_grid(point: Point2d) -> GridPoint<Self> {
+        point
+            .div_euclid(Self::SIZE)
+            .map(GridIndex::<Self>::from_raw)
     }
 }
 

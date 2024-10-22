@@ -11,7 +11,7 @@ use std::{
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
-use vec2::{Bounds, Line, Point2d};
+use vec2::{Bounds, Line, Num, Point2d};
 
 #[path = "../tests/tracing.rs"]
 mod tracing_helper;
@@ -38,7 +38,7 @@ impl Chunk for LocationsChunk {
     type Layer = Locations;
     type Store = Self;
 
-    fn compute(_layer: &Self::Layer, index: GridPoint) -> Self {
+    fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         LocationsChunk {
             points: generate_points::<Self, 3>(index, 0),
         }
@@ -46,7 +46,7 @@ impl Chunk for LocationsChunk {
 }
 
 fn generate_points<C: Chunk + 'static, const N: usize>(
-    index: GridPoint,
+    index: GridPoint<C>,
     salt: u64,
 ) -> [Point2d; N] {
     let chunk_bounds = C::bounds(index);
@@ -93,9 +93,13 @@ impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
     type Store = Self;
 
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self {
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         let mut points = ArrayVec::new();
-        'points: for p in layer.raw_locations.get_or_compute(index).points {
+        'points: for p in layer
+            .raw_locations
+            .get_or_compute(index.into_same_chunk_size())
+            .points
+        {
             for other in layer.raw_locations.get_range(Bounds {
                 min: p,
                 max: p + Point2d::splat(100),
@@ -142,14 +146,16 @@ impl Chunk for RoadsChunk {
     type Layer = Roads;
     type Store = Arc<Self>;
 
-    fn compute(layer: &Self::Layer, index: GridPoint) -> Self::Store {
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let mut roads = vec![];
         let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
         let mut start = usize::MAX;
         let mut n = usize::MAX;
         for (i, grid) in layer
             .locations
-            .get_grid_range(Bounds::point(index).pad(Point2d::splat(1).map(GridIndex)))
+            .get_grid_range(
+                Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
+            )
             .enumerate()
         {
             if i == 4 {
@@ -196,7 +202,7 @@ struct Player {
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
-    last_grid_vision_range: Cell<Bounds<GridIndex>>,
+    last_grid_vision_range: Cell<Bounds<GridIndex<RoadsChunk>>>,
     roads_for_last_grid_vision_range: RefCell<Vec<Line>>,
 }
 
@@ -215,7 +221,7 @@ impl Player {
                 color: DARKPURPLE,
                 braking: false,
             },
-            last_grid_vision_range: Bounds::point(Point2d::splat(GridIndex(0))).into(),
+            last_grid_vision_range: Bounds::point(Point2d::splat(GridIndex::from_raw(0))).into(),
             roads_for_last_grid_vision_range: vec![].into(),
         }
     }
@@ -251,7 +257,10 @@ impl Player {
         vision_range
     }
 
-    pub fn grid_vision_range(&self, half_screen_visible_area: Vec2) -> Bounds<GridIndex> {
+    pub fn grid_vision_range(
+        &self,
+        half_screen_visible_area: Vec2,
+    ) -> Bounds<GridIndex<RoadsChunk>> {
         RoadsChunk::bounds_to_grid(self.vision_range(half_screen_visible_area))
     }
 
