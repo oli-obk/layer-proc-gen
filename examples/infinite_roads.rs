@@ -4,6 +4,7 @@ use arrayvec::ArrayVec;
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
+    borrow::Borrow,
     cell::{Cell, Ref, RefCell},
     num::{NonZeroU16, NonZeroU8},
     sync::Arc,
@@ -38,7 +39,7 @@ impl Chunk for CitiesChunk {
     type Layer = Cities;
     type Store = Self;
 
-    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(u16::MAX) {
+    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256 * 32) {
         Some(v) => Point2d::splat(v),
         None => unreachable!(),
     };
@@ -204,12 +205,13 @@ impl Chunk for RoadsChunk {
     }
 }
 
-fn gen_roads<const N: usize>(chunks: impl Iterator<Item = ArrayVec<Point2d, N>>) -> Vec<Line> {
+fn gen_roads(chunks: impl Iterator<Item = impl Borrow<[Point2d]>>) -> Vec<Line> {
     let mut roads = vec![];
     let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
     let mut start = usize::MAX;
     let mut n = usize::MAX;
     for (i, grid) in chunks.enumerate() {
+        let grid = grid.borrow();
         if i == 4 {
             start = points.len();
             n = grid.len();
@@ -248,19 +250,65 @@ fn gen_roads<const N: usize>(chunks: impl Iterator<Item = ArrayVec<Point2d, N>>)
     roads
 }
 
+struct Highways {
+    grid: RollingGrid<Self>,
+    cities: LayerDependency<Cities, 256, 256>,
+}
+
+#[derive(PartialEq, Debug, Default)]
+struct HighwaysChunk {
+    roads: Vec<Line>,
+}
+
+impl Layer for Highways {
+    type Chunk = HighwaysChunk;
+
+    fn rolling_grid(&self) -> &RollingGrid<Self> {
+        &self.grid
+    }
+
+    #[track_caller]
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.cities.ensure_loaded_in_bounds(chunk_bounds);
+    }
+}
+
+impl Chunk for HighwaysChunk {
+    type Layer = Highways;
+    type Store = Arc<Self>;
+    const SIZE: Point2d<NonZeroU16> = CitiesChunk::SIZE;
+
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
+        let roads = gen_roads(
+            layer
+                .cities
+                .get_grid_range(
+                    Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
+                )
+                .map(|chunk| chunk.points),
+        );
+        HighwaysChunk { roads }.into()
+    }
+}
+
 struct Player {
     roads: LayerDependency<Roads, 1000, 1000>,
+    highways: LayerDependency<Highways, 1000, 1000>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
-    last_grid_vision_range: Cell<Bounds<GridIndex<RoadsChunk>>>,
+    last_grid_vision_range: Cell<(
+        Bounds<GridIndex<RoadsChunk>>,
+        Bounds<GridIndex<HighwaysChunk>>,
+    )>,
     roads_for_last_grid_vision_range: RefCell<Vec<Line>>,
 }
 
 impl Player {
-    pub fn new(roads: Arc<Roads>) -> Self {
+    pub fn new(roads: Arc<Roads>, highways: Arc<Highways>) -> Self {
         Self {
             roads: roads.into(),
+            highways: highways.into(),
             max_zoom_in: NonZeroU8::new(3).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
             car: Car {
@@ -272,7 +320,11 @@ impl Player {
                 color: DARKPURPLE,
                 braking: false,
             },
-            last_grid_vision_range: Bounds::point(Point2d::splat(GridIndex::from_raw(0))).into(),
+            last_grid_vision_range: (
+                Bounds::point(Point2d::splat(GridIndex::from_raw(0))),
+                Bounds::point(Point2d::splat(GridIndex::from_raw(0))).into(),
+            )
+                .into(),
             roads_for_last_grid_vision_range: vec![].into(),
         }
     }
@@ -298,31 +350,36 @@ impl Player {
         player_pos
     }
 
-    pub fn vision_range(&self, half_screen_visible_area: Vec2) -> Bounds {
+    pub fn vision_range<C: Chunk>(&self, half_screen_visible_area: Vec2) -> Bounds {
         let padding = half_screen_visible_area.abs().ceil().as_i64vec2();
         let padding = Point2d::new(padding.x as i64, padding.y as i64);
         let mut vision_range = Bounds::point(self.pos()).pad(padding);
-        let padding = RoadsChunk::SIZE.map(|p| i64::from(p.get()));
+        let padding = C::SIZE.map(|p| i64::from(p.get()));
         vision_range.min -= padding;
         vision_range.max += padding;
         vision_range
     }
 
-    pub fn grid_vision_range(
+    pub fn grid_vision_range<C: Chunk>(
         &self,
         half_screen_visible_area: Vec2,
-    ) -> Bounds<GridIndex<RoadsChunk>> {
-        RoadsChunk::bounds_to_grid(self.vision_range(half_screen_visible_area))
+    ) -> Bounds<GridIndex<C>> {
+        C::bounds_to_grid(self.vision_range::<C>(half_screen_visible_area))
     }
 
     pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, [Line]> {
         let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
-        if grid_vision_range != self.last_grid_vision_range.get() {
-            self.last_grid_vision_range.set(grid_vision_range);
+        let highway_vision_range = self.grid_vision_range(half_screen_visible_area);
+        if (grid_vision_range, highway_vision_range) != self.last_grid_vision_range.get() {
+            self.last_grid_vision_range
+                .set((grid_vision_range, highway_vision_range));
             let mut roads = self.roads_for_last_grid_vision_range.borrow_mut();
             roads.clear();
             for index in grid_vision_range.iter() {
                 roads.extend_from_slice(&self.roads.get_or_compute(index).roads);
+            }
+            for index in highway_vision_range.iter() {
+                roads.extend_from_slice(&self.highways.get_or_compute(index).roads);
             }
         }
         Ref::map(self.roads_for_last_grid_vision_range.borrow(), |r| &**r)
@@ -346,13 +403,17 @@ async fn main() {
     let locations = Arc::new(ReducedLocations {
         grid: Default::default(),
         raw_locations: raw_locations.into(),
-        cities: cities.into(),
+        cities: cities.clone().into(),
     });
     let roads = Arc::new(Roads {
         grid: Default::default(),
         locations: locations.clone().into(),
     });
-    let mut player = Player::new(roads.clone());
+    let highways = Arc::new(Highways {
+        grid: Default::default(),
+        cities: cities.into(),
+    });
+    let mut player = Player::new(roads, highways);
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
 
@@ -420,7 +481,7 @@ async fn main() {
                 PURPLE,
             );
         }
-        let vision_range = player.vision_range(padding);
+        let vision_range = player.vision_range::<RoadsChunk>(padding);
         draw_bounds(vision_range);
 
         for index in player.grid_vision_range(padding).iter() {
