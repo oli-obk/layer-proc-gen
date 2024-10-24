@@ -125,6 +125,8 @@ impl Layer for ReducedLocations {
     }
 }
 
+const CITY_SIZE: i64 = 1000;
+
 impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
     type Store = Self;
@@ -136,7 +138,7 @@ impl Chunk for ReducedLocationsChunk {
             cities
                 .points
                 .iter()
-                .all(|&city| center.dist_squared(city) > 1000 * 1000)
+                .all(|&city| center.manhattan_dist(city) > CITY_SIZE)
         }) {
             return Self::default();
         }

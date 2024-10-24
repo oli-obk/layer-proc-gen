@@ -126,13 +126,29 @@ impl<T: Copy> Point2d<T> {
     }
 }
 
-impl<T: Copy + Sub<Output = T> + Mul<Output = T> + Add<Output = T>> Point2d<T> {
+pub trait Abs {
+    fn abs(self) -> Self;
+}
+
+impl Abs for i64 {
+    fn abs(self) -> Self {
+        i64::abs(self)
+    }
+}
+
+impl<T: Copy + Sub<Output = T> + Mul<Output = T> + Add<Output = T> + Abs> Point2d<T> {
     pub fn dist_squared(self, center: Point2d<T>) -> T {
         (self - center).len_squared()
     }
+
     pub fn len_squared(self) -> T {
         let Self { x, y } = self;
         x * x + y * y
+    }
+
+    pub fn manhattan_dist(self, city: Point2d<T>) -> T {
+        let diff = city - self;
+        diff.x.abs() + diff.y.abs()
     }
 }
 

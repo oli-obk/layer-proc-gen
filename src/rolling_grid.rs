@@ -1,5 +1,5 @@
 use crate::{
-    vec2::{Num, Point2d},
+    vec2::{Abs, Num, Point2d},
     Chunk, Layer,
 };
 use std::{
@@ -35,6 +35,12 @@ impl<L: Layer> Default for RollingGrid<L> {
 }
 
 pub struct GridIndex<C>(pub i64, PhantomData<C>);
+
+impl<C> Abs for GridIndex<C> {
+    fn abs(self) -> Self {
+        Self::from_raw(self.0.abs())
+    }
+}
 
 impl<C> Div for GridIndex<C> {
     type Output = Self;
