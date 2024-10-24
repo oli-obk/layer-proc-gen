@@ -281,7 +281,7 @@ impl Chunk for HighwaysChunk {
     const SIZE: Point2d<NonZeroU16> = CitiesChunk::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
-        let roads = gen_roads(
+        let mut roads = gen_roads(
             layer
                 .cities
                 .get_grid_range(
@@ -289,6 +289,13 @@ impl Chunk for HighwaysChunk {
                 )
                 .map(|chunk| chunk.points),
         );
+
+        for road in &mut roads {
+            let approx_start = road.with_manhattan_length(CITY_SIZE).end;
+            let approx_end = road.flip().with_manhattan_length(CITY_SIZE).end;
+            road.start = approx_start;
+            road.end = approx_end;
+        }
         HighwaysChunk { roads }.into()
     }
 }

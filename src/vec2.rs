@@ -79,6 +79,24 @@ impl Line {
             max: self.end,
         }
     }
+
+    pub fn with_manhattan_length(self, len: i64) -> Self {
+        assert!(len > 0);
+        let dir = self.end - self.start;
+        let old_len = dir.x.abs() + dir.y.abs();
+        let new_dir = dir * len / old_len;
+        Self {
+            start: self.start,
+            end: self.start + new_dir,
+        }
+    }
+
+    pub fn flip(self) -> Self {
+        Self {
+            start: self.end,
+            end: self.start,
+        }
+    }
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
