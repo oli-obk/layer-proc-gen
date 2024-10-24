@@ -456,6 +456,7 @@ pub trait Num:
     const ONE: Self;
     const TWO: Self;
     fn iter_range(range: std::ops::Range<Self>) -> impl Iterator<Item = Self>;
+    fn as_u64(self) -> u64;
 }
 
 impl Num for i64 {
@@ -465,5 +466,9 @@ impl Num for i64 {
 
     fn iter_range(range: std::ops::Range<Self>) -> impl Iterator<Item = Self> {
         range
+    }
+
+    fn as_u64(self) -> u64 {
+        self as u64
     }
 }

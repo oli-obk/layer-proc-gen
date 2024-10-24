@@ -1,5 +1,5 @@
-use ::rand::prelude::*;
-use ::tracing::{debug, trace};
+use ::rand::{distributions::uniform::SampleRange as _, prelude::*};
+use ::tracing::trace;
 use arrayvec::ArrayVec;
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
@@ -22,7 +22,13 @@ use tracing_helper::*;
 struct Cities(RollingGrid<Self>);
 #[derive(PartialEq, Debug, Clone, Default)]
 struct CitiesChunk {
-    points: [Point2d; 3],
+    points: [City; 3],
+}
+
+#[derive(PartialEq, Debug, Clone, Default, Copy)]
+struct City {
+    center: Point2d,
+    size: i64,
 }
 
 impl Layer for Cities {
@@ -46,7 +52,10 @@ impl Chunk for CitiesChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
-            points: generate_points::<Self, 3>(index, 1),
+            points: generate_points::<Self, 3>(index, 1).map(|center| City {
+                center,
+                size: { (1000..2000).sample_single(&mut rng_for_point(center, 0)) },
+            }),
         }
     }
 }
@@ -85,8 +94,13 @@ fn generate_points<C: Chunk + 'static, const N: usize>(
 ) -> [Point2d; N] {
     let chunk_bounds = C::bounds(index);
     trace!(?chunk_bounds);
-    let x = SmallRng::seed_from_u64(index.x.0 as u64);
-    let y = SmallRng::seed_from_u64(index.y.0 as u64);
+    let mut rng = rng_for_point(index, salt);
+    std::array::from_fn(|_| chunk_bounds.sample(&mut rng))
+}
+
+fn rng_for_point<T: Num>(index: Point2d<T>, salt: u64) -> SmallRng {
+    let x = SmallRng::seed_from_u64(index.x.as_u64());
+    let y = SmallRng::seed_from_u64(index.y.as_u64());
     let salt = SmallRng::seed_from_u64(salt);
     let mut seed = [0; 32];
     for mut rng in [x, y, salt] {
@@ -96,8 +110,7 @@ fn generate_points<C: Chunk + 'static, const N: usize>(
             *seed ^= *tmp;
         }
     }
-    let mut rng = SmallRng::from_seed(seed);
-    std::array::from_fn(|_| chunk_bounds.sample(&mut rng))
+    SmallRng::from_seed(seed)
 }
 
 /// Removes locations that are too close to others
@@ -125,8 +138,6 @@ impl Layer for ReducedLocations {
     }
 }
 
-const CITY_SIZE: i64 = 1000;
-
 impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
     type Store = Self;
@@ -138,7 +149,7 @@ impl Chunk for ReducedLocationsChunk {
             cities
                 .points
                 .iter()
-                .all(|&city| center.manhattan_dist(city) > CITY_SIZE)
+                .all(|&city| center.manhattan_dist(city.center) > city.size)
         }) {
             return Self::default();
         }
@@ -202,14 +213,20 @@ impl Chunk for RoadsChunk {
                     Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
                 )
                 .map(|chunk| chunk.points),
+            |&p| p,
+            |&a, &b| a.to(b),
         );
         RoadsChunk { roads }.into()
     }
 }
 
-fn gen_roads(chunks: impl Iterator<Item = impl Borrow<[Point2d]>>) -> Vec<Line> {
+fn gen_roads<T: Copy, U>(
+    chunks: impl Iterator<Item = impl Borrow<[T]>>,
+    get_point: impl Fn(&T) -> Point2d,
+    mk: impl Fn(&T, &T) -> U,
+) -> Vec<U> {
     let mut roads = vec![];
-    let mut points: ArrayVec<Point2d, { 3 * 9 }> = ArrayVec::new();
+    let mut points: ArrayVec<T, { 3 * 9 }> = ArrayVec::new();
     let mut start = usize::MAX;
     let mut n = usize::MAX;
     for (i, grid) in chunks.enumerate() {
@@ -231,10 +248,13 @@ fn gen_roads(chunks: impl Iterator<Item = impl Borrow<[Point2d]>>) -> Vec<Line> 
     // FIXME: cache distance computations as we do them, we can save 1215-(3*9^3)/2 = 850 distance computations (70%) and figure
     // out how to cache them across grid cells (along with removing them from the cache when they aren't needed anymore)
     // as the neighboring cells will be redoing the same distance computations.
-    for (i, &a) in points.iter().enumerate().skip(start).take(n) {
-        for &b in points.iter().skip(i + 1) {
+    for (i, a_val) in points.iter().enumerate().skip(start).take(n) {
+        let a = get_point(a_val);
+        for b_val in points.iter().skip(i + 1) {
+            let b = get_point(b_val);
             let dist = a.dist_squared(b);
-            if points.iter().copied().all(|c| {
+            if points.iter().all(|c| {
+                let c = get_point(c);
                 if a == c || b == c {
                     return true;
                 }
@@ -244,11 +264,10 @@ fn gen_roads(chunks: impl Iterator<Item = impl Borrow<[Point2d]>>) -> Vec<Line> 
                 let b_dist = c.dist_squared(b);
                 dist < a_dist || dist < b_dist
             }) {
-                roads.push(a.to(b))
+                roads.push(mk(a_val, b_val))
             }
         }
     }
-    debug!(?roads);
     roads
 }
 
@@ -282,39 +301,46 @@ impl Chunk for HighwaysChunk {
     const SIZE: Point2d<NonZeroU16> = CitiesChunk::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
-        let mut roads = gen_roads(
+        let roads = gen_roads(
             layer
                 .cities
                 .get_grid_range(
                     Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
                 )
                 .map(|chunk| chunk.points),
+            |p| p.center,
+            |a, b| (a.size, b.size, a.center.to(b.center)),
         );
 
-        for road in &mut roads {
-            let approx_start = road.with_manhattan_length(CITY_SIZE).end;
-            let approx_end = road.flip().with_manhattan_length(CITY_SIZE).end;
+        let roads = roads
+            .into_iter()
+            .map(|(start_size, end_size, road)| {
+                let approx_start = road.with_manhattan_length(start_size).end;
+                let approx_end = road.flip().with_manhattan_length(end_size).end;
 
-            let closest = |p, start| {
-                let mut closest = None;
-                Chunk::pos_to_grid(p)
-                    .to(Chunk::pos_to_grid(start))
-                    .iter_all_touched_pixels(|x, y| {
-                        let index = Point2d::new(x, y);
-                        closest = layer
-                            .locations
-                            .get_or_compute(index)
-                            .points
-                            .iter()
-                            .copied()
-                            .chain(closest)
-                            .min_by_key(|point| point.dist_squared(p))
-                    });
-                closest
-            };
-            road.start = closest(approx_start, road.start).unwrap();
-            road.end = closest(approx_end, road.end).unwrap();
-        }
+                let closest = |p, start| {
+                    let mut closest = None;
+                    Chunk::pos_to_grid(p)
+                        .to(Chunk::pos_to_grid(start))
+                        .iter_all_touched_pixels(|x, y| {
+                            let index = Point2d::new(x, y);
+                            closest = layer
+                                .locations
+                                .get_or_compute(index)
+                                .points
+                                .iter()
+                                .copied()
+                                .chain(closest)
+                                .min_by_key(|point| point.dist_squared(p))
+                        });
+                    closest
+                };
+                Line {
+                    start: closest(approx_start, road.start).unwrap(),
+                    end: closest(approx_end, road.end).unwrap(),
+                }
+            })
+            .collect();
         HighwaysChunk { roads }.into()
     }
 }
@@ -445,15 +471,6 @@ async fn main() {
     let mut player = Player::new(roads, highways);
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
-
-    let start = locations
-        .cities
-        .get_range(Bounds::point(player.pos()))
-        .next()
-        .unwrap()
-        .points[0];
-    player.car.pos.x = start.x as _;
-    player.car.pos.y = start.y as _;
 
     loop {
         player.car.update(Actions {

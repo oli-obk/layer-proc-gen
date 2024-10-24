@@ -167,6 +167,10 @@ impl<C> Num for GridIndex<C> {
             }
         })
     }
+
+    fn as_u64(self) -> u64 {
+        self.0.as_u64()
+    }
 }
 
 impl<C> Div<i64> for GridIndex<C> {
