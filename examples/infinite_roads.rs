@@ -369,7 +369,7 @@ impl Player {
                 width: 5.,
                 speed: 0.0,
                 rotation: 0.0,
-                pos: vec2(1200., 300.),
+                pos: vec2(-154., -9.),
                 color: DARKPURPLE,
                 braking: false,
             },
