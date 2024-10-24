@@ -5,7 +5,7 @@ use crate::{
 use std::{
     cell::{Cell, RefCell},
     marker::PhantomData,
-    ops::{Div, DivAssign},
+    ops::{Div, DivAssign, Neg},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -142,9 +142,31 @@ impl<C> GridIndex<C> {
     }
 }
 
+impl<C> Neg for GridIndex<C> {
+    type Output = Self;
+
+    fn neg(mut self) -> Self::Output {
+        self.0 = self.0.neg();
+        self
+    }
+}
+
 impl<C> Num for GridIndex<C> {
+    const ZERO: Self = Self::from_raw(0);
     const ONE: Self = Self::from_raw(1);
     const TWO: Self = Self::from_raw(2);
+
+    fn iter_range(mut range: std::ops::Range<Self>) -> impl Iterator<Item = Self> {
+        std::iter::from_fn(move || {
+            if range.start == range.end {
+                None
+            } else {
+                let i = range.start;
+                range.start.0 += 1;
+                Some(i)
+            }
+        })
+    }
 }
 
 impl<C> Div<i64> for GridIndex<C> {

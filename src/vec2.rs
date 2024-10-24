@@ -8,7 +8,7 @@ use rand::{
 };
 use std::{
     num::NonZeroU16,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 #[derive(
@@ -95,6 +95,73 @@ impl Line {
         Self {
             start: self.end,
             end: self.start,
+        }
+    }
+}
+
+impl<T: Num> Line<T> {
+    pub fn iter_all_touched_pixels(self, mut pnt: impl FnMut(T, T)) {
+        // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
+        let mut x0 = self.start.x;
+        let mut y0 = self.start.y;
+        let mut x1 = self.end.x;
+        let mut y1 = self.end.y;
+        let mut kx;
+        let mut ky;
+        x1 -= x0;
+        kx = T::ZERO;
+        if x1 > T::ZERO {
+            kx = T::ONE;
+        }
+        if x1 < T::ZERO {
+            kx = -T::ONE;
+            x1 = -x1;
+        }
+        x1 += T::ONE;
+        y1 -= y0;
+        ky = T::ZERO;
+        if y1 > T::ZERO {
+            ky = T::ONE;
+        }
+        if y1 < T::ZERO {
+            ky = -T::ONE;
+            y1 = -y1;
+        }
+        y1 += T::ONE;
+        if x1 >= y1 {
+            let mut c = x1;
+            for i in T::iter_range(T::ZERO..x1) {
+                pnt(x0, y0); // this is normal pixel the two below are subpixels
+                c -= y1;
+                if c <= T::ZERO {
+                    if i != x1 - T::ONE {
+                        pnt(x0 + kx, y0)
+                    };
+                    c += x1;
+                    y0 += ky;
+                    if i != x1 - T::ONE {
+                        pnt(x0, y0);
+                    }
+                }
+                x0 += kx
+            }
+        } else {
+            let mut c = y1;
+            for i in T::iter_range(T::ZERO..y1) {
+                pnt(x0, y0); // this is normal pixel the two below are subpixels
+                c -= x1;
+                if c <= T::ZERO {
+                    if i != y1 - T::ONE {
+                        pnt(x0, y0 + ky);
+                    }
+                    c += y1;
+                    x0 += kx;
+                    if i != y1 - T::ONE {
+                        pnt(x0, y0);
+                    }
+                }
+                y0 += ky
+            }
         }
     }
 }
@@ -374,12 +441,29 @@ impl<T: DivAssign + Copy> Div<Point2d<T>> for Bounds<T> {
     }
 }
 
-pub trait Num {
+pub trait Num:
+    Sized
+    + Copy
+    + AddAssign
+    + SubAssign
+    + Ord
+    + Sub<Output = Self>
+    + Neg<Output = Self>
+    + Eq
+    + Add<Output = Self>
+{
+    const ZERO: Self;
     const ONE: Self;
     const TWO: Self;
+    fn iter_range(range: std::ops::Range<Self>) -> impl Iterator<Item = Self>;
 }
 
 impl Num for i64 {
+    const ZERO: i64 = 0;
     const ONE: i64 = 1;
-    const TWO: i64 = 1;
+    const TWO: i64 = 2;
+
+    fn iter_range(range: std::ops::Range<Self>) -> impl Iterator<Item = Self> {
+        range
+    }
 }

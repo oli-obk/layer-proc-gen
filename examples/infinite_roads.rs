@@ -255,6 +255,7 @@ fn gen_roads(chunks: impl Iterator<Item = impl Borrow<[Point2d]>>) -> Vec<Line> 
 struct Highways {
     grid: RollingGrid<Self>,
     cities: LayerDependency<Cities, 256, 256>,
+    locations: LayerDependency<ReducedLocations, 256, 256>,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -293,8 +294,26 @@ impl Chunk for HighwaysChunk {
         for road in &mut roads {
             let approx_start = road.with_manhattan_length(CITY_SIZE).end;
             let approx_end = road.flip().with_manhattan_length(CITY_SIZE).end;
-            road.start = approx_start;
-            road.end = approx_end;
+
+            let closest = |p, start| {
+                let mut closest = None;
+                Chunk::pos_to_grid(p)
+                    .to(Chunk::pos_to_grid(start))
+                    .iter_all_touched_pixels(|x, y| {
+                        let index = Point2d::new(x, y);
+                        closest = layer
+                            .locations
+                            .get_or_compute(index)
+                            .points
+                            .iter()
+                            .copied()
+                            .chain(closest)
+                            .min_by_key(|point| point.dist_squared(p))
+                    });
+                closest
+            };
+            road.start = closest(approx_start, road.start).unwrap();
+            road.end = closest(approx_end, road.end).unwrap();
         }
         HighwaysChunk { roads }.into()
     }
@@ -421,6 +440,7 @@ async fn main() {
     let highways = Arc::new(Highways {
         grid: Default::default(),
         cities: cities.into(),
+        locations: locations.clone().into(),
     });
     let mut player = Player::new(roads, highways);
     let mut smooth_cam_speed = 0.0;
