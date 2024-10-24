@@ -52,9 +52,9 @@ impl Chunk for CitiesChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
-            points: generate_points::<Self, 3>(index, 1).map(|center| City {
+            points: generate_points::<1, Self, 3>(index).map(|center| City {
                 center,
-                size: { (1000..2000).sample_single(&mut rng_for_point(center, 0)) },
+                size: { (1000..2000).sample_single(&mut rng_for_point::<0, _>(center)) },
             }),
         }
     }
@@ -83,25 +83,24 @@ impl Chunk for LocationsChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         LocationsChunk {
-            points: generate_points::<Self, 3>(index, 0),
+            points: generate_points::<0, Self, 3>(index),
         }
     }
 }
 
-fn generate_points<C: Chunk + 'static, const N: usize>(
+fn generate_points<const SALT: u64, C: Chunk + 'static, const N: usize>(
     index: GridPoint<C>,
-    salt: u64,
 ) -> [Point2d; N] {
     let chunk_bounds = C::bounds(index);
     trace!(?chunk_bounds);
-    let mut rng = rng_for_point(index, salt);
+    let mut rng = rng_for_point::<SALT, _>(index);
     std::array::from_fn(|_| chunk_bounds.sample(&mut rng))
 }
 
-fn rng_for_point<T: Num>(index: Point2d<T>, salt: u64) -> SmallRng {
+fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
     let x = SmallRng::seed_from_u64(index.x.as_u64());
     let y = SmallRng::seed_from_u64(index.y.as_u64());
-    let salt = SmallRng::seed_from_u64(salt);
+    let salt = SmallRng::seed_from_u64(SALT);
     let mut seed = [0; 32];
     for mut rng in [x, y, salt] {
         let mut tmp = [0; 32];
