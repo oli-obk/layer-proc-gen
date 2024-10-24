@@ -367,11 +367,13 @@ impl Player {
             car: Car {
                 length: 7.,
                 width: 5.,
-                speed: 0.0,
+                velocity: Vec2::ZERO,
                 rotation: 0.0,
+                steering_limit: 15,
                 pos: vec2(-154., -9.),
                 color: DARKPURPLE,
                 braking: false,
+                reversing: false,
             },
             last_grid_vision_range: (
                 Bounds::point(Point2d::splat(GridIndex::from_raw(0))),
@@ -486,7 +488,7 @@ async fn main() {
             debug_zoom -= 1.0;
         }
 
-        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.speed * 0.01;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.velocity.length() / 60. * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
@@ -574,16 +576,20 @@ async fn main() {
     }
 }
 
+#[derive(Debug)]
 struct Car {
     length: f32,
     width: f32,
     rotation: f32,
     color: Color,
-    speed: f32,
+    velocity: Vec2,
     pos: Vec2,
-    /// Used to ensure that braking doesn't go into reversing without releasing and
-    /// repressing the key.
+    /// Maximum angle of the front wheels, in degrees
+    steering_limit: i8,
+    /// Enable the braking lights
     braking: bool,
+    /// Enable the reversing lights
+    reversing: bool,
 }
 
 struct Actions {
@@ -595,34 +601,69 @@ struct Actions {
 }
 
 impl Car {
+    // Taken from https://github.com/godotrecipes/2d_car_steering/blob/master/car.gd
     fn update(&mut self, actions: Actions) {
-        let braking = self.braking || actions.brake || self.speed > 0. && actions.reverse;
-        self.braking = actions.brake;
-        if braking {
-            if self.speed > 0. {
-                self.speed = (self.speed - 0.1).clamp(0.0, 2.0);
-            } else {
-                self.speed = (self.speed + 0.1).clamp(-0.3, 0.0);
+        let dt = get_frame_time();
+        let heading = Vec2::from_angle(self.rotation);
+        const ENGINE_POWER: f32 = 90.;
+        const BRAKING_POWER: f32 = -200.;
+        const FRICTION: f32 = -55.;
+        const DRAG: f32 = -0.06;
+        // Get Inputs
+
+        let turn = if actions.left {
+            -1.
+        } else if actions.right {
+            1.
+        } else {
+            0.
+        };
+        let steer_dir = turn * f32::from(self.steering_limit).to_radians();
+
+        let mut acceleration = Vec2::ZERO;
+        self.braking = false;
+        self.reversing = false;
+        if actions.brake {
+            self.braking = true;
+            acceleration = -self.velocity.normalize_or_zero() * BRAKING_POWER;
+        } else if actions.accelerate {
+            acceleration = heading * ENGINE_POWER;
+            if is_key_down(KeyCode::LeftShift) {
+                acceleration *= 10.;
             }
         } else if actions.reverse {
-            self.speed -= 0.01;
-        } else if actions.accelerate {
-            self.speed += 0.01;
-        } else {
-            self.speed *= 0.99;
+            self.reversing = true;
+            acceleration = -heading * ENGINE_POWER;
         }
 
-        if actions.left {
-            self.rotation -= f32::to_radians(1.) * self.speed;
+        // Apply friction
+        {
+            if acceleration == Vec2::ZERO && self.velocity.length() < 0.05 {
+                self.velocity = Vec2::ZERO
+            }
+            let friction = self.velocity * FRICTION * dt;
+            let drag = self.velocity * self.velocity.length() * DRAG * dt;
+            acceleration += friction + drag;
         }
-        if actions.right {
-            self.rotation += f32::to_radians(1.) * self.speed;
+        // Calculate steering
+        {
+            let mut rear_wheel = self.pos - heading * self.length / 2.0;
+            let mut front_wheel = self.pos + heading * self.length / 2.0;
+            rear_wheel += self.velocity * dt;
+            front_wheel += Vec2::from_angle(steer_dir).rotate(self.velocity) * dt;
+            let new_heading = (front_wheel - rear_wheel).normalize();
+            let d = new_heading.dot(self.velocity.normalize());
+
+            if d > 0. {
+                self.velocity = new_heading * self.velocity.length();
+            } else if d < 0. {
+                self.velocity = -new_heading * self.velocity.length();
+            }
+            self.rotation = new_heading.to_angle();
         }
-        self.speed = self.speed.clamp(-0.3, 2.0);
-        if is_key_down(KeyCode::LeftShift) {
-            self.speed *= 10.;
-        }
-        self.pos += Vec2::from_angle(self.rotation) * self.speed;
+        // Apply forces
+        self.velocity += acceleration * dt;
+        self.pos += self.velocity * dt;
     }
     fn draw(&self) {
         draw_rectangle_ex(
@@ -639,7 +680,7 @@ impl Car {
         let rotation = Vec2::from_angle(self.rotation) * self.length / 2.;
         draw_circle(rotation.x, rotation.y, self.width / 2., self.color);
 
-        if self.braking || self.speed < 0. {
+        if self.braking || self.reversing {
             let rotation = Vec2::from_angle(self.rotation) * (self.length / 2. + 1.);
             draw_rectangle_ex(
                 -rotation.x,
@@ -649,7 +690,7 @@ impl Car {
                 DrawRectangleParams {
                     offset: vec2(0.5, 0.5),
                     rotation: self.rotation,
-                    color: if self.speed < 0. { WHITE } else { RED },
+                    color: if self.reversing { WHITE } else { RED },
                 },
             );
         }
