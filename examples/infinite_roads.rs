@@ -647,17 +647,19 @@ impl Car {
         }
         // Calculate steering
         {
-            let mut rear_wheel = -heading * self.length / 2.0;
-            let mut front_wheel = heading * self.length / 2.0;
+            let wheel_offset = heading * self.length / 2.0;
+            let mut rear_wheel = -wheel_offset;
+            let mut front_wheel = wheel_offset;
             rear_wheel += self.velocity * dt;
             front_wheel += Vec2::from_angle(steer_dir).rotate(self.velocity) * dt;
             let new_heading = (front_wheel - rear_wheel).normalize();
             let d = new_heading.dot(self.velocity.normalize());
 
+            let new_velocity = new_heading * self.velocity.length();
             if d > 0. {
-                self.velocity = new_heading * self.velocity.length();
+                self.velocity = new_velocity;
             } else if d < 0. {
-                self.velocity = -new_heading * self.velocity.length();
+                self.velocity = -new_velocity;
             }
             self.rotation = new_heading.to_angle();
         }
