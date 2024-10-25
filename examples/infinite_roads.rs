@@ -477,7 +477,7 @@ async fn main() {
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
             reverse: is_key_down(KeyCode::S),
-            brake: is_key_down(KeyCode::Space),
+            hand_brake: is_key_down(KeyCode::Space),
             left: is_key_down(KeyCode::A),
             right: is_key_down(KeyCode::D),
         });
@@ -594,21 +594,24 @@ struct Car {
 
 struct Actions {
     accelerate: bool,
-    brake: bool,
+    hand_brake: bool,
     reverse: bool,
     left: bool,
     right: bool,
 }
+
+const ENGINE_POWER: f32 = 900.;
+const BRAKING_POWER: f32 = -2000.;
+const FRICTION: f32 = -55.;
+const DRAG: f32 = -0.06;
+const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 3.;
+const INERTIA: f32 = 10.;
 
 impl Car {
     // Taken from https://github.com/godotrecipes/2d_car_steering/blob/master/car.gd
     fn update(&mut self, actions: Actions) {
         let dt = get_frame_time();
         let heading = Vec2::from_angle(self.rotation);
-        const ENGINE_POWER: f32 = 90.;
-        const BRAKING_POWER: f32 = -200.;
-        const FRICTION: f32 = -55.;
-        const DRAG: f32 = -0.06;
         // Get Inputs
 
         let turn = if actions.left {
@@ -620,53 +623,70 @@ impl Car {
         };
         let steer_dir = turn * f32::from(self.steering_limit).to_radians();
 
-        let mut acceleration = Vec2::ZERO;
-        self.braking = false;
-        self.reversing = false;
-        if actions.brake {
-            self.braking = true;
-            acceleration = -self.velocity.normalize_or_zero() * BRAKING_POWER;
+        self.braking = actions.hand_brake;
+        self.reversing = actions.reverse;
+
+        // Kill all movement once the car gets slow enough
+        // (instead of getting closer to zero velocity in decreasingly small steps)
+        if !actions.accelerate && !actions.reverse && self.velocity.length() < 0.05 {
+            self.velocity = Vec2::ZERO
+        }
+
+        // Apply drag (from air on car), effectively specifying a maximum velocity.
+        self.velocity += self.velocity * self.velocity.length() * DRAG * dt;
+
+        // Calculate wheel friction forces
+        let mut rear_wheel_force = Vec2::ZERO;
+        rear_wheel_force += self.wheel_friction(heading) * dt;
+
+        let mut front_wheel_force = Vec2::ZERO;
+        let front_wheel_direction = Vec2::from_angle(steer_dir).rotate(heading);
+        front_wheel_force += self.wheel_friction(front_wheel_direction) * dt;
+
+        // Accumulate car engine and brake behaviors
+        if actions.reverse {
+            front_wheel_force -= front_wheel_direction * ENGINE_POWER * dt;
         } else if actions.accelerate {
-            acceleration = heading * ENGINE_POWER;
-            if is_key_down(KeyCode::LeftShift) {
-                acceleration *= 10.;
-            }
-        } else if actions.reverse {
-            self.reversing = true;
-            acceleration = -heading * ENGINE_POWER;
+            front_wheel_force += front_wheel_direction * ENGINE_POWER * dt;
+        }
+        if actions.hand_brake {
+            rear_wheel_force += heading * BRAKING_POWER * dt;
         }
 
-        // Apply friction
-        {
-            if acceleration == Vec2::ZERO && self.velocity.length() < 0.05 {
-                self.velocity = Vec2::ZERO
-            }
-            let friction = self.velocity * FRICTION * dt;
-            let drag = self.velocity * self.velocity.length() * DRAG * dt;
-            acceleration += friction + drag;
-        }
-        // Calculate steering
-        {
-            let wheel_offset = heading * self.length / 2.0;
-            let mut rear_wheel = -wheel_offset;
-            let mut front_wheel = wheel_offset;
-            rear_wheel += self.velocity * dt;
-            front_wheel += Vec2::from_angle(steer_dir).rotate(self.velocity) * dt;
-            let new_heading = (front_wheel - rear_wheel).normalize();
-            let d = new_heading.dot(self.velocity.normalize());
+        eprintln!("{rear_wheel_force}, {front_wheel_force}");
 
-            let new_velocity = new_heading * self.velocity.length();
-            if d > 0. {
-                self.velocity = new_velocity;
-            } else if d < 0. {
-                self.velocity = -new_velocity;
-            }
-            self.rotation = new_heading.to_angle();
-        }
+        // Let the wheels lose grip on the surface
+        front_wheel_force = slip(front_wheel_force);
+        rear_wheel_force = slip(rear_wheel_force);
+
+        // Apply wheel forces to vehicle
+
+        // Direction force
+        self.velocity += (front_wheel_force + rear_wheel_force) * dt;
+
+        // Angular force
+
+        let wheel_offset = heading * self.length / 2.0;
+        let front_wheel = wheel_offset;
+        let rear_wheel = -wheel_offset;
+
+        let angular_velocity =
+            front_wheel.perp_dot(front_wheel_force) + rear_wheel.perp_dot(rear_wheel_force);
+        self.rotation += angular_velocity / INERTIA * dt;
+
         // Apply forces
-        self.velocity += acceleration * dt;
         self.pos += self.velocity * dt;
     }
+
+    /// Compute and aggregate lateral and forward friction.
+    /// friction is infinite up to a limit where the wheel slips (for drifting)
+    fn wheel_friction(&mut self, direction: Vec2) -> Vec2 {
+        let normal = direction.perp();
+        let lateral_velocity = self.velocity.dot(normal) * normal;
+        let forward_velocity = self.velocity.dot(direction) * direction;
+        forward_velocity * FRICTION - lateral_velocity
+    }
+
     fn draw(&self) {
         draw_rectangle_ex(
             0.,
@@ -696,5 +716,15 @@ impl Car {
                 },
             );
         }
+    }
+}
+
+// Reduce force if aboove the slip limit
+fn slip(friction: Vec2) -> Vec2 {
+    let friction_len = friction.length();
+    if friction_len > MAX_WHEEL_FRICTION_BEFORE_SLIP {
+        friction * (MAX_WHEEL_FRICTION_BEFORE_SLIP / friction_len)
+    } else {
+        friction
     }
 }
