@@ -11,6 +11,7 @@ use std::{
 };
 
 use layer_proc_gen::*;
+use rigid2d::Body;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use vec2::{Bounds, Line, Num, Point2d};
 
@@ -367,10 +368,11 @@ impl Player {
             car: Car {
                 length: 7.,
                 width: 5.,
-                velocity: Vec2::ZERO,
-                rotation: 0.0,
+                body: Body {
+                    position: vec2(-154., -9.),
+                    ..Default::default()
+                },
                 steering_limit: 15,
-                pos: vec2(-154., -9.),
                 color: DARKPURPLE,
                 braking: false,
                 reversing: false,
@@ -392,7 +394,7 @@ impl Player {
         let player_pos = self.pos();
 
         // Avoid moving everything in whole pixels and allow for smooth sub-pixel movement instead
-        let adjust = self.car.pos.fract();
+        let adjust = self.car.body.position.fract();
         move |point: Point2d| -> Vec2 {
             let point = point - player_pos;
             i64vec2(point.x, point.y).as_vec2() - adjust
@@ -401,8 +403,8 @@ impl Player {
 
     fn pos(&self) -> Point2d {
         let player_pos = Point2d {
-            x: self.car.pos.x as i64,
-            y: self.car.pos.y as i64,
+            x: self.car.body.position.x as i64,
+            y: self.car.body.position.y as i64,
         };
         player_pos
     }
@@ -490,7 +492,7 @@ async fn main() {
             debug_zoom -= 1.0;
         }
 
-        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.velocity.length() / 60. * 0.01;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.body.velocity.length() / 60. * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
@@ -572,7 +574,7 @@ async fn main() {
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
-        draw_text(&format!("pos: {:?}", player.car.pos), 0., 60., 30., WHITE);
+        draw_text(&format!("{:.2?}", player.car.body), 0., 60., 30., WHITE);
 
         next_frame().await
     }
@@ -582,10 +584,8 @@ async fn main() {
 struct Car {
     length: f32,
     width: f32,
-    rotation: f32,
+    body: Body,
     color: Color,
-    velocity: Vec2,
-    pos: Vec2,
     /// Maximum angle of the front wheels, in degrees
     steering_limit: i8,
     /// Enable the braking lights
@@ -616,7 +616,7 @@ impl Car {
     // Taken from https://github.com/godotrecipes/2d_car_steering/blob/master/car.gd
     fn update(&mut self, actions: Actions) {
         let dt = get_frame_time();
-        let heading = Vec2::from_angle(self.rotation);
+        let heading = Vec2::from_angle(self.body.rotation);
         // Get Inputs
 
         let turn = if actions.left {
@@ -633,12 +633,12 @@ impl Car {
 
         // Kill all movement once the car gets slow enough
         // (instead of getting closer to zero velocity in decreasingly small steps)
-        if !actions.accelerate && !actions.reverse && self.velocity.length() < 0.05 {
-            self.velocity = Vec2::ZERO
+        if !actions.accelerate && !actions.reverse && self.body.velocity.length() < 0.05 {
+            self.body.velocity = Vec2::ZERO
         }
 
         // Apply drag (from air on car), effectively specifying a maximum velocity.
-        self.velocity += self.velocity * self.velocity.length() * DRAG * dt;
+        self.body.velocity += self.body.velocity * self.body.velocity.length() * DRAG * dt;
 
         // Calculate wheel friction forces
         let mut rear_wheel_velocity = Vec2::ZERO;
@@ -672,12 +672,12 @@ impl Car {
         self.rear_wheel += rear_wheel_velocity * dt;
 
         // Set vehicle rotation to match where its wheels are
-        self.rotation = (self.front_wheel - self.rear_wheel).to_angle();
-        self.velocity = (front_wheel_velocity + rear_wheel_velocity) / 2.;
+        self.body.rotation = (self.front_wheel - self.rear_wheel).to_angle();
+        self.body.velocity = (front_wheel_velocity + rear_wheel_velocity) / 2.;
         self.front_wheel += front_wheel_velocity * dt * 10.;
         self.rear_wheel += rear_wheel_velocity * dt * 10.;
 
-        self.pos += self.velocity * dt;
+        self.body.step(dt);
     }
 
     /// Compute and aggregate lateral and forward friction.
@@ -687,8 +687,8 @@ impl Car {
         // Perfect lateral velocity fixing will just cause the wheel to oscillate left
         // and right across frames.
         const LATERAL_VELOCITY_ADJUST: f32 = 0.9;
-        let lateral_velocity = self.velocity.dot(normal) * normal * LATERAL_VELOCITY_ADJUST;
-        let forward_velocity = self.velocity.dot(direction) * direction;
+        let lateral_velocity = self.body.velocity.dot(normal) * normal * LATERAL_VELOCITY_ADJUST;
+        let forward_velocity = self.body.velocity.dot(direction) * direction;
         forward_velocity + forward_velocity * FRICTION - lateral_velocity
     }
 
@@ -700,15 +700,15 @@ impl Car {
             self.width,
             DrawRectangleParams {
                 offset: vec2(0.5, 0.5),
-                rotation: self.rotation,
+                rotation: self.body.rotation,
                 color: self.color,
             },
         );
-        let rotation = Vec2::from_angle(self.rotation) * self.length / 2.;
+        let rotation = Vec2::from_angle(self.body.rotation) * self.length / 2.;
         draw_circle(rotation.x, rotation.y, self.width / 2., self.color);
 
         if self.braking || self.reversing {
-            let rotation = Vec2::from_angle(self.rotation) * (self.length / 2. + 1.);
+            let rotation = Vec2::from_angle(self.body.rotation) * (self.length / 2. + 1.);
             draw_rectangle_ex(
                 -rotation.x,
                 -rotation.y,
@@ -716,15 +716,22 @@ impl Car {
                 self.width,
                 DrawRectangleParams {
                     offset: vec2(0.5, 0.5),
-                    rotation: self.rotation,
+                    rotation: self.body.rotation,
                     color: if self.reversing { WHITE } else { RED },
                 },
             );
         }
 
-        draw_line(0., 0., self.velocity.x, self.velocity.y, 1., YELLOW);
+        draw_line(
+            0.,
+            0.,
+            self.body.velocity.x,
+            self.body.velocity.y,
+            1.,
+            YELLOW,
+        );
 
-        let heading = Vec2::from_angle(self.rotation);
+        let heading = Vec2::from_angle(self.body.rotation);
         let wheel_offset = heading * self.length / 2.0;
         draw_line(
             wheel_offset.x,
