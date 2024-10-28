@@ -376,8 +376,6 @@ impl Player {
                 color: DARKPURPLE,
                 braking: false,
                 reversing: false,
-                front_wheel: Vec2::ZERO,
-                rear_wheel: Vec2::ZERO,
             },
             last_grid_vision_range: (
                 Bounds::point(Point2d::splat(GridIndex::from_raw(0))),
@@ -592,9 +590,6 @@ struct Car {
     braking: bool,
     /// Enable the reversing lights
     reversing: bool,
-
-    front_wheel: Vec2,
-    rear_wheel: Vec2,
 }
 
 struct Actions {
@@ -605,10 +600,10 @@ struct Actions {
     right: bool,
 }
 
-const ENGINE_POWER: f32 = 400.;
+const ENGINE_POWER: f32 = 15.;
 const BRAKING_POWER: f32 = -2000.;
-const FRICTION: f32 = -0.001;
-const DRAG: f32 = -0.01;
+const FRICTION: f32 = -0.0001;
+const DRAG: f32 = -0.005;
 const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 3.;
 const INERTIA: f32 = 10.;
 
@@ -640,56 +635,46 @@ impl Car {
         // Apply drag (from air on car), effectively specifying a maximum velocity.
         self.body.velocity += self.body.velocity * self.body.velocity.length() * DRAG * dt;
 
-        // Calculate wheel friction forces
-        let mut rear_wheel_velocity = Vec2::ZERO;
-        rear_wheel_velocity += self.wheel_velocity(heading);
+        let wheel_offset = heading * self.length / 2.0;
 
-        let mut front_wheel_velocity = Vec2::ZERO;
+        // Calculate wheel friction forces
+        let rear_impulse = self.wheel_velocity(heading, -wheel_offset);
+        self.body.add_impulse(-wheel_offset, rear_impulse * dt);
+
         let front_wheel_direction = Vec2::from_angle(steer_dir).rotate(heading);
-        front_wheel_velocity += self.wheel_velocity(front_wheel_direction);
+        let front_impulse = self.wheel_velocity(front_wheel_direction, wheel_offset);
+        self.body.add_impulse(wheel_offset, front_impulse * dt);
 
         // Accumulate car engine and brake behaviors
         if actions.reverse {
-            front_wheel_velocity -= front_wheel_direction * ENGINE_POWER * dt;
+            self.body
+                .add_impulse(wheel_offset, -front_wheel_direction * ENGINE_POWER * dt);
         } else if actions.accelerate {
-            front_wheel_velocity += front_wheel_direction * ENGINE_POWER * dt;
+            self.body
+                .add_impulse(wheel_offset, front_wheel_direction * ENGINE_POWER * dt);
         }
         if actions.hand_brake {
-            rear_wheel_velocity += heading * BRAKING_POWER * dt;
+            self.body.add_impulse(
+                -wheel_offset,
+                -self.body.velocity.normalize_or_zero() * BRAKING_POWER * dt,
+            );
         }
 
         // Let the wheels lose grip on the surface
         //front_wheel_force = slip(front_wheel_force);
         //rear_wheel_force = slip(rear_wheel_force);
 
-        // Apply wheel forces
-
-        let wheel_offset = heading * self.length / 2.0;
-        self.front_wheel = wheel_offset;
-        self.rear_wheel = -wheel_offset;
-
-        self.front_wheel += front_wheel_velocity * dt;
-        self.rear_wheel += rear_wheel_velocity * dt;
-
-        // Set vehicle rotation to match where its wheels are
-        self.body.rotation = (self.front_wheel - self.rear_wheel).to_angle();
-        self.body.velocity = (front_wheel_velocity + rear_wheel_velocity) / 2.;
-        self.front_wheel += front_wheel_velocity * dt * 10.;
-        self.rear_wheel += rear_wheel_velocity * dt * 10.;
-
         self.body.step(dt);
     }
 
     /// Compute and aggregate lateral and forward friction.
     /// friction is infinite up to a limit where the wheel slips (for drifting)
-    fn wheel_velocity(&mut self, direction: Vec2) -> Vec2 {
+    fn wheel_velocity(&mut self, direction: Vec2, wheel_position: Vec2) -> Vec2 {
         let normal = direction.perp();
-        // Perfect lateral velocity fixing will just cause the wheel to oscillate left
-        // and right across frames.
-        const LATERAL_VELOCITY_ADJUST: f32 = 0.9;
-        let lateral_velocity = self.body.velocity.dot(normal) * normal * LATERAL_VELOCITY_ADJUST;
-        let forward_velocity = self.body.velocity.dot(direction) * direction;
-        forward_velocity + forward_velocity * FRICTION - lateral_velocity
+        let velocity = self.body.velocity_at_local_point(wheel_position);
+        let lateral_velocity = velocity.dot(normal) * normal;
+        let forward_velocity = velocity.dot(direction) * direction;
+        forward_velocity * FRICTION - lateral_velocity
     }
 
     fn draw(&self) {
@@ -729,26 +714,6 @@ impl Car {
             self.body.velocity.y,
             1.,
             YELLOW,
-        );
-
-        let heading = Vec2::from_angle(self.body.rotation);
-        let wheel_offset = heading * self.length / 2.0;
-        draw_line(
-            wheel_offset.x,
-            wheel_offset.y,
-            self.front_wheel.x,
-            self.front_wheel.y,
-            1.0,
-            BLACK,
-        );
-
-        draw_line(
-            -wheel_offset.x,
-            -wheel_offset.y,
-            self.rear_wheel.x,
-            self.rear_wheel.y,
-            1.0,
-            BLACK,
         );
     }
 }

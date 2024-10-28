@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use glam::Vec2;
 
 #[derive(Default, Debug)]
@@ -15,11 +17,17 @@ impl Body {
     /// If applied offset, some of the impulse goes to rotation.
     pub fn add_impulse(&mut self, pos: Vec2, dir: Vec2) {
         self.velocity += dir;
-        self.angular_velocity += pos.perp_dot(dir);
+        self.angular_velocity += pos.perp_dot(dir) * 4. / PI;
     }
 
     pub fn step(&mut self, dt: f32) {
         self.position += self.velocity * dt;
         self.rotation += self.angular_velocity * dt;
+    }
+
+    /// The velocity that the point of the object at the given offset
+    /// moves. Takes into account linear and angular velocity.
+    pub fn velocity_at_local_point(&self, point: Vec2) -> Vec2 {
+        self.velocity + self.angular_velocity * point.perp()
     }
 }
