@@ -621,7 +621,7 @@ impl Car {
         let heading = Vec2::from_angle(self.body.rotation);
         // Get Inputs
 
-        const STEERING_SPEED: f32 = 0.5;
+        const STEERING_SPEED: f32 = 2.;
         self.steering += if actions.left {
             -STEERING_SPEED
         } else if actions.right {
