@@ -365,11 +365,11 @@ impl Player {
         Self {
             roads: roads.into_dep(),
             highways: highways.into_dep(),
-            max_zoom_in: NonZeroU8::new(3).unwrap(),
+            max_zoom_in: NonZeroU8::new(5).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
             car: Car {
-                length: 7.,
-                width: 5.,
+                length: 4.,
+                width: 2.,
                 body: Body {
                     position: vec2(-154., -9.),
                     ..Default::default()
@@ -493,7 +493,7 @@ async fn main() {
             debug_zoom -= 1.0;
         }
 
-        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.body.velocity.length() / 60. * 0.01;
+        smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.body.velocity.length() / 30. * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
@@ -550,14 +550,14 @@ async fn main() {
         for &line in player.roads(padding).iter() {
             let start = point2screen(line.start);
             let end = point2screen(line.end);
-            draw_line(line, 40., GRAY);
-            draw_circle(start.x, start.y, 20., GRAY);
-            draw_circle(start.x, start.y, 2., WHITE);
-            draw_circle(end.x, end.y, 20., GRAY);
-            draw_circle(end.x, end.y, 2., WHITE);
+            draw_line(line, 8., GRAY);
+            draw_circle(start.x, start.y, 4., GRAY);
+            draw_circle(start.x, start.y, 0.1, WHITE);
+            draw_circle(end.x, end.y, 4., GRAY);
+            draw_circle(end.x, end.y, 0.1, WHITE);
         }
         for &line in player.roads(padding).iter() {
-            draw_line(line, 4., WHITE);
+            draw_line(line, 0.2, WHITE);
         }
 
         if debug_zoom != 1.0 {
@@ -575,10 +575,20 @@ async fn main() {
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
+        draw_text(
+            &format!(
+                "speed: {:.0}km/h",
+                player.car.body.velocity.length() * 3600. / 1000.
+            ),
+            0.,
+            60.,
+            30.,
+            WHITE,
+        );
         draw_multiline_text(
             &format!("{:#.2?}", player.car.body),
             0.,
-            60.,
+            90.,
             30.,
             Some(1.),
             WHITE,
@@ -590,7 +600,9 @@ async fn main() {
 
 #[derive(Debug)]
 struct Car {
+    // In `m`
     length: f32,
+    // In `m`
     width: f32,
     body: Body,
     color: Color,
@@ -611,8 +623,8 @@ struct Actions {
     right: bool,
 }
 
-const ENGINE_POWER: f32 = 15.;
-const FRICTION: f32 = -0.0001;
+const ENGINE_POWER: f32 = 5.;
+const FRICTION: f32 = -0.0005;
 const DRAG: f32 = -0.005;
 const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 20.;
 
@@ -671,8 +683,15 @@ impl Car {
             self.body
                 .add_impulse(wheel_offset, -front_wheel_direction * ENGINE_POWER);
         } else if actions.accelerate {
-            self.body
-                .add_impulse(wheel_offset, front_wheel_direction * ENGINE_POWER);
+            let multiplier = if is_key_down(KeyCode::LeftShift) {
+                10.
+            } else {
+                1.
+            };
+            self.body.add_impulse(
+                wheel_offset,
+                front_wheel_direction * ENGINE_POWER * multiplier,
+            );
         }
 
         self.body.step(get_frame_time());
