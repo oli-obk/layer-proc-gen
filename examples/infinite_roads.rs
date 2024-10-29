@@ -6,7 +6,7 @@ use miniquad::window::screen_size;
 use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
-    num::{NonZeroU16, NonZeroU8},
+    num::NonZeroU8,
     sync::Arc,
 };
 
@@ -47,10 +47,7 @@ impl Chunk for CitiesChunk {
     type Layer = Cities;
     type Store = Self;
 
-    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256 * 32) {
-        Some(v) => Point2d::splat(v),
-        None => unreachable!(),
-    };
+    const SIZE: Point2d<u8> = Point2d::splat(13);
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
@@ -303,7 +300,7 @@ impl Layer for Highways {
 impl Chunk for HighwaysChunk {
     type Layer = Highways;
     type Store = Arc<Self>;
-    const SIZE: Point2d<NonZeroU16> = CitiesChunk::SIZE;
+    const SIZE: Point2d<u8> = CitiesChunk::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -417,7 +414,7 @@ impl Player {
         let padding = half_screen_visible_area.abs().ceil().as_i64vec2();
         let padding = Point2d::new(padding.x as i64, padding.y as i64);
         let mut vision_range = Bounds::point(self.pos()).pad(padding);
-        let padding = C::SIZE.map(|p| i64::from(p.get()));
+        let padding = C::SIZE.map(|i| 1 << i);
         vision_range.min -= padding;
         vision_range.max += padding;
         vision_range

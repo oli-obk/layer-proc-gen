@@ -189,7 +189,7 @@ impl<C> DivAssign<i64> for GridIndex<C> {
 
 impl<C: Chunk> GridPoint<C> {
     pub fn into_same_chunk_size<D: Chunk>(self) -> GridPoint<D> {
-        const { assert!(C::SIZE.x.get() == D::SIZE.x.get() && C::SIZE.y.get() == D::SIZE.y.get()) };
+        const { assert!(C::SIZE.x == D::SIZE.x && C::SIZE.y == D::SIZE.y) };
         GridPoint {
             x: GridIndex::from_raw(self.x.0),
             y: GridIndex::from_raw(self.y.0),
@@ -247,25 +247,31 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     pub const fn pos_within_chunk(pos: Point2d, chunk_pos: GridPoint<L::Chunk>) -> Point2d {
-        pos.sub(
-            Point2d {
-                x: chunk_pos.x.0,
-                y: chunk_pos.y.0,
-            }
-            .mul(L::Chunk::SIZE),
-        )
+        pos.sub(Point2d {
+            x: chunk_pos.x.0 * (1 << L::Chunk::SIZE.x),
+            y: chunk_pos.y.0 * (1 << L::Chunk::SIZE.y),
+        })
     }
 
     pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<L::Chunk> {
-        let pos = pos.div_euclid(L::Chunk::SIZE);
         GridPoint {
-            x: GridIndex::from_raw(pos.x),
-            y: GridIndex::from_raw(pos.y),
+            x: GridIndex::from_raw(pos.x >> L::Chunk::SIZE.x),
+            y: GridIndex::from_raw(pos.y >> L::Chunk::SIZE.y),
         }
     }
 
     const fn index_of_point(point: GridPoint<L::Chunk>) -> usize {
+        const { assert!((L::GRID_SIZE.x as u32) < usize::BITS) }
+        const { assert!((L::GRID_SIZE.y as u32) < usize::BITS) }
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "checked above that remainder op will alway fit in usize"
+        )]
         let x = point.x.0.rem_euclid(1 << L::GRID_SIZE.x) as usize;
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "checked above that remainder op will alway fit in usize"
+        )]
         let y = point.y.0.rem_euclid(1 << L::GRID_SIZE.y) as usize;
         x + (y << L::GRID_SIZE.x)
     }

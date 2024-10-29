@@ -1,4 +1,4 @@
-use std::{num::NonZeroU16, sync::Arc};
+use std::sync::Arc;
 
 use layer_proc_gen::*;
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
@@ -71,10 +71,7 @@ impl Chunk for PlayerChunk {
     type Layer = Player;
     type Store = Self;
 
-    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
-        Some(v) => Point2d::splat(v),
-        None => std::unreachable!(),
-    };
+    const SIZE: Point2d<u8> = Point2d::splat(0);
 
     fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         PlayerChunk
@@ -119,10 +116,7 @@ impl Chunk for MapChunk {
     type Layer = Map;
     type Store = Self;
 
-    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(1) {
-        Some(v) => Point2d::splat(v),
-        None => std::unreachable!(),
-    };
+    const SIZE: Point2d<u8> = Point2d::splat(0);
 
     fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         MapChunk

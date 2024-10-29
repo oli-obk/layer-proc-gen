@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::{borrow::Borrow, num::NonZeroU16};
+use std::borrow::Borrow;
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{instrument, trace};
@@ -129,21 +129,19 @@ pub trait Chunk: Sized + 'static {
     /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
     type Store: Clone + Borrow<Self> + Default;
 
-    /// Width and height of the chunk
-    const SIZE: Point2d<NonZeroU16> = match NonZeroU16::new(256) {
-        Some(v) => Point2d::splat(v),
-        None => unreachable!(),
-    };
+    /// Width and height of the chunk (in powers of two);
+    const SIZE: Point2d<u8> = Point2d::splat(8);
 
     /// Compute a chunk from its dependencies
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
-        let min = index.map(|i| i.0) * Point2d::from(Self::SIZE);
+        let size = Self::SIZE.map(|i| 1 << i);
+        let min = index.map(|i| i.0) * size;
         Bounds {
             min,
-            max: min + Self::SIZE.into(),
+            max: min + size,
         }
     }
 
@@ -154,8 +152,7 @@ pub trait Chunk: Sized + 'static {
 
     /// Get the grid the position is in
     fn pos_to_grid(point: Point2d) -> GridPoint<Self> {
-        point
-            .div_euclid(Self::SIZE)
+        Point2d::new(point.x >> Self::SIZE.x, point.y >> Self::SIZE.y)
             .map(GridIndex::<Self>::from_raw)
     }
 }
