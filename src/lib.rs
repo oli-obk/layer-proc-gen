@@ -4,7 +4,7 @@
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 
-use std::{borrow::Borrow, num::NonZeroU16, sync::Arc};
+use std::{borrow::Borrow, num::NonZeroU16};
 
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{instrument, trace};
@@ -14,6 +14,11 @@ use vec2::{Bounds, Point2d};
 pub trait Layer: Sized {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
     type Chunk: Chunk<Layer = Self>;
+
+    /// Data structure that stores the layer. Usually `Arc<Self>`,
+    /// but some layers are only used to simplify another layer, so
+    /// they can get stored directly without the `Arc` indirection.
+    type Store: Borrow<Self> + From<Self>;
 
     /// Internal `RollingGrid` size. This is the area that should stay in memory at all times as it will
     /// get requested a lot.
@@ -27,12 +32,34 @@ pub trait Layer: Sized {
 
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
+
+    fn into_dep(self) -> LayerDependency<Self> {
+        LayerDependency::from(Self::Store::from(self))
+    }
+
+    fn new() -> LayerDependency<Self>
+    where
+        Self: Default,
+    {
+        LayerDependency::from(Self::Store::from(Self::default()))
+    }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 /// The Padding is in game coordinates.
 pub struct LayerDependency<L: Layer> {
-    layer: Arc<L>,
+    layer: L::Store,
+}
+
+impl<L: Layer> Clone for LayerDependency<L>
+where
+    L::Store: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            layer: self.layer.clone(),
+        }
+    }
 }
 
 impl<L: Layer> LayerDependency<L> {
@@ -40,7 +67,7 @@ impl<L: Layer> LayerDependency<L> {
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     fn ensure_chunk_providers(&self, index: GridPoint<L::Chunk>) {
         let chunk_bounds = L::Chunk::bounds(index);
-        self.layer.ensure_all_deps(chunk_bounds);
+        self.layer.borrow().ensure_all_deps(chunk_bounds);
     }
 
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -63,7 +90,10 @@ impl<L: Layer> LayerDependency<L> {
 
     /// Get a chunk or generate it if it wasn't already cached.
     pub fn get_or_compute(&self, index: GridPoint<L::Chunk>) -> <L::Chunk as Chunk>::Store {
-        self.layer.rolling_grid().get_or_compute(index, &self.layer)
+        self.layer
+            .borrow()
+            .rolling_grid()
+            .get_or_compute(index, self.layer.borrow())
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -84,10 +114,8 @@ impl<L: Layer> LayerDependency<L> {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
-}
 
-impl<L: Layer> From<Arc<L>> for LayerDependency<L> {
-    fn from(layer: Arc<L>) -> Self {
+    fn from(layer: L::Store) -> Self {
         Self { layer }
     }
 }

@@ -15,6 +15,7 @@ struct TheChunk(usize);
 
 impl Layer for TheLayer {
     type Chunk = TheChunk;
+    type Store = Arc<Self>;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
@@ -38,10 +39,10 @@ struct Player {
 }
 
 impl Player {
-    pub fn new(the_layer: Arc<TheLayer>) -> Self {
+    pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
         Self {
             grid: Default::default(),
-            the_layer: the_layer.into(),
+            the_layer,
         }
     }
 }
@@ -51,6 +52,7 @@ struct PlayerChunk;
 
 impl Layer for Player {
     type Chunk = PlayerChunk;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
@@ -85,10 +87,10 @@ struct Map {
 }
 
 impl Map {
-    pub fn new(the_layer: Arc<TheLayer>) -> Self {
+    pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
         Self {
             grid: Default::default(),
-            the_layer: the_layer.into(),
+            the_layer,
         }
     }
 }
@@ -98,6 +100,7 @@ struct MapChunk;
 
 impl Layer for Map {
     type Chunk = MapChunk;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
@@ -154,12 +157,10 @@ fn double_assign_chunk() {
 #[test]
 fn create_player() {
     init_tracing();
-    let the_layer = Arc::new(TheLayer::default());
-    let player = Player::new(the_layer.clone());
-    let player = LayerDependency::from(Arc::new(player));
+    let the_layer = TheLayer::new();
+    let player = Player::new(the_layer.clone()).into_dep();
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
-    let map = Map::new(the_layer);
-    let map = LayerDependency::from(Arc::new(map));
+    let map = Map::new(the_layer).into_dep();
     map.ensure_loaded_in_bounds(Bounds::point(player_pos));
 }

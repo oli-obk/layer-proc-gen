@@ -34,6 +34,7 @@ struct City {
 
 impl Layer for Cities {
     type Chunk = CitiesChunk;
+    type Store = Arc<Self>;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
@@ -70,6 +71,7 @@ struct LocationsChunk {
 
 impl Layer for Locations {
     type Chunk = LocationsChunk;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
@@ -127,6 +129,7 @@ struct ReducedLocationsChunk {
 
 impl Layer for ReducedLocations {
     type Chunk = ReducedLocationsChunk;
+    type Store = Arc<Self>;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
@@ -190,6 +193,7 @@ struct RoadsChunk {
 
 impl Layer for Roads {
     type Chunk = RoadsChunk;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
@@ -284,6 +288,7 @@ struct HighwaysChunk {
 
 impl Layer for Highways {
     type Chunk = HighwaysChunk;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.grid
@@ -359,10 +364,10 @@ struct Player {
 }
 
 impl Player {
-    pub fn new(roads: Arc<Roads>, highways: Arc<Highways>) -> Self {
+    pub fn new(roads: Roads, highways: Highways) -> Self {
         Self {
-            roads: roads.into(),
-            highways: highways.into(),
+            roads: roads.into_dep(),
+            highways: highways.into_dep(),
             max_zoom_in: NonZeroU8::new(3).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
             car: Car {
@@ -456,22 +461,22 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let raw_locations = Arc::new(Locations::default());
-    let cities = Arc::new(Cities::default());
-    let locations = Arc::new(ReducedLocations {
+    let cities = Cities::new();
+    let locations = ReducedLocations {
         grid: Default::default(),
-        raw_locations: raw_locations.into(),
-        cities: cities.clone().into(),
-    });
-    let roads = Arc::new(Roads {
+        raw_locations: Locations::new(),
+        cities: cities.clone(),
+    }
+    .into_dep();
+    let roads = Roads {
         grid: Default::default(),
-        locations: locations.clone().into(),
-    });
-    let highways = Arc::new(Highways {
+        locations: locations.clone(),
+    };
+    let highways = Highways {
         grid: Default::default(),
-        cities: cities.into(),
-        locations: locations.clone().into(),
-    });
+        cities,
+        locations,
+    };
     let mut player = Player::new(roads, highways);
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
