@@ -604,8 +604,7 @@ const ENGINE_POWER: f32 = 15.;
 const BRAKING_POWER: f32 = -200.;
 const FRICTION: f32 = -0.0001;
 const DRAG: f32 = -0.005;
-const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 3.;
-const INERTIA: f32 = 10.;
+const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 20.;
 
 impl Car {
     // Taken from https://github.com/godotrecipes/2d_car_steering/blob/master/car.gd
@@ -641,10 +640,12 @@ impl Car {
 
         // Calculate wheel friction forces
         let rear_impulse = self.wheel_velocity(heading, -wheel_offset);
+        let rear_impulse = slip(rear_impulse);
         self.body.add_impulse(-wheel_offset, rear_impulse);
 
         let front_wheel_direction = Vec2::from_angle(steer_dir).rotate(heading);
         let front_impulse = self.wheel_velocity(front_wheel_direction, wheel_offset);
+        let front_impulse = slip(front_impulse);
         self.body.add_impulse(wheel_offset, front_impulse);
 
         // Accumulate car engine and brake behaviors
@@ -661,10 +662,6 @@ impl Car {
                 -self.body.velocity.clamp_length_max(BRAKING_POWER),
             );
         }
-
-        // Let the wheels lose grip on the surface
-        //front_wheel_force = slip(front_wheel_force);
-        //rear_wheel_force = slip(rear_wheel_force);
 
         self.body.step(get_frame_time());
     }
@@ -722,10 +719,5 @@ impl Car {
 
 // Reduce force if aboove the slip limit
 fn slip(friction: Vec2) -> Vec2 {
-    let friction_len = friction.length();
-    if friction_len > MAX_WHEEL_FRICTION_BEFORE_SLIP {
-        friction * (MAX_WHEEL_FRICTION_BEFORE_SLIP / friction_len)
-    } else {
-        friction
-    }
+    friction.clamp_length_max(MAX_WHEEL_FRICTION_BEFORE_SLIP)
 }
