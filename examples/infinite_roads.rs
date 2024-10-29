@@ -610,7 +610,6 @@ const INERTIA: f32 = 10.;
 impl Car {
     // Taken from https://github.com/godotrecipes/2d_car_steering/blob/master/car.gd
     fn update(&mut self, actions: Actions) {
-        let dt = get_frame_time();
         let heading = Vec2::from_angle(self.body.rotation);
         // Get Inputs
 
@@ -633,30 +632,33 @@ impl Car {
         }
 
         // Apply drag (from air on car), effectively specifying a maximum velocity.
-        self.body.velocity += self.body.velocity * self.body.velocity.length() * DRAG * dt;
+        self.body.add_impulse(
+            Vec2::ZERO,
+            self.body.velocity * self.body.velocity.length() * DRAG,
+        );
 
         let wheel_offset = heading * self.length / 2.0;
 
         // Calculate wheel friction forces
         let rear_impulse = self.wheel_velocity(heading, -wheel_offset);
-        self.body.add_impulse(-wheel_offset, rear_impulse * dt);
+        self.body.add_impulse(-wheel_offset, rear_impulse);
 
         let front_wheel_direction = Vec2::from_angle(steer_dir).rotate(heading);
         let front_impulse = self.wheel_velocity(front_wheel_direction, wheel_offset);
-        self.body.add_impulse(wheel_offset, front_impulse * dt);
+        self.body.add_impulse(wheel_offset, front_impulse);
 
         // Accumulate car engine and brake behaviors
         if actions.reverse {
             self.body
-                .add_impulse(wheel_offset, -front_wheel_direction * ENGINE_POWER * dt);
+                .add_impulse(wheel_offset, -front_wheel_direction * ENGINE_POWER);
         } else if actions.accelerate {
             self.body
-                .add_impulse(wheel_offset, front_wheel_direction * ENGINE_POWER * dt);
+                .add_impulse(wheel_offset, front_wheel_direction * ENGINE_POWER);
         }
         if actions.hand_brake {
             self.body.add_impulse(
                 -wheel_offset,
-                -self.body.velocity.normalize_or_zero() * BRAKING_POWER * dt,
+                -self.body.velocity.normalize_or_zero() * BRAKING_POWER,
             );
         }
 
@@ -664,7 +666,7 @@ impl Car {
         //front_wheel_force = slip(front_wheel_force);
         //rear_wheel_force = slip(rear_wheel_force);
 
-        self.body.step(dt);
+        self.body.step(get_frame_time());
     }
 
     /// Compute and aggregate lateral and forward friction.
