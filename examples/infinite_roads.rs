@@ -12,7 +12,7 @@ use std::{
 
 use layer_proc_gen::*;
 use rigid2d::Body;
-use rolling_grid::{GridIndex, GridPoint, RollingGrid};
+use rolling_grid::{GridIndex, GridPoint};
 use vec2::{Bounds, Line, Num, Point2d};
 
 #[path = "../tests/tracing.rs"]
@@ -20,7 +20,7 @@ mod tracing_helper;
 use tracing_helper::*;
 
 #[derive(Default)]
-struct Cities(RollingGrid<Self>);
+struct Cities;
 #[derive(PartialEq, Debug, Clone, Default)]
 struct CitiesChunk {
     points: [City; 3],
@@ -34,11 +34,7 @@ struct City {
 
 impl Layer for Cities {
     type Chunk = CitiesChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.0
-    }
+    type Store<T> = T;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
@@ -61,7 +57,6 @@ impl Chunk for CitiesChunk {
 
 /// Removes locations that are too close to others
 struct ReducedCities {
-    grid: RollingGrid<Self>,
     cities: LayerDependency<Cities>,
 }
 
@@ -72,11 +67,7 @@ struct ReducedCitiesChunk {
 
 impl Layer for ReducedCities {
     type Chunk = ReducedCitiesChunk;
-    type Store = Arc<Self>;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.cities.ensure_loaded_in_bounds(chunk_bounds);
@@ -118,7 +109,7 @@ impl Chunk for ReducedCitiesChunk {
 }
 
 #[derive(Default)]
-struct Locations(RollingGrid<Self>);
+struct Locations;
 #[derive(PartialEq, Debug, Clone, Default)]
 struct LocationsChunk {
     points: [Point2d; 3],
@@ -126,11 +117,7 @@ struct LocationsChunk {
 
 impl Layer for Locations {
     type Chunk = LocationsChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.0
-    }
+    type Store<T> = T;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
@@ -173,7 +160,6 @@ fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
 
 /// Removes locations that are too close to others
 struct ReducedLocations {
-    grid: RollingGrid<Self>,
     raw_locations: LayerDependency<Locations>,
     cities: LayerDependency<ReducedCities>,
 }
@@ -185,11 +171,7 @@ struct ReducedLocationsChunk {
 
 impl Layer for ReducedLocations {
     type Chunk = ReducedLocationsChunk;
-    type Store = Arc<Self>;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
@@ -239,7 +221,6 @@ impl Chunk for ReducedLocationsChunk {
 }
 
 struct Roads {
-    grid: RollingGrid<Self>,
     locations: LayerDependency<ReducedLocations>,
 }
 
@@ -250,11 +231,7 @@ struct RoadsChunk {
 
 impl Layer for Roads {
     type Chunk = RoadsChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = T;
 
     #[track_caller]
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
@@ -334,7 +311,6 @@ fn gen_roads<T: Copy, U>(
 }
 
 struct Highways {
-    grid: RollingGrid<Self>,
     cities: LayerDependency<ReducedCities>,
     locations: LayerDependency<ReducedLocations>,
 }
@@ -346,11 +322,7 @@ struct HighwaysChunk {
 
 impl Layer for Highways {
     type Chunk = HighwaysChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = T;
 
     #[track_caller]
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
@@ -521,23 +493,16 @@ async fn main() {
     overlay_camera.offset = vec2(-1., 1.);
 
     let cities = Cities::new();
-    let cities = ReducedCities {
-        cities,
-        grid: Default::default(),
-    }
-    .into_dep();
+    let cities = ReducedCities { cities }.into_dep();
     let locations = ReducedLocations {
-        grid: Default::default(),
         raw_locations: Locations::new(),
         cities: cities.clone(),
     }
     .into_dep();
     let roads = Roads {
-        grid: Default::default(),
         locations: locations.clone(),
     };
     let highways = Highways {
-        grid: Default::default(),
         cities: cities.clone(),
         locations,
     };

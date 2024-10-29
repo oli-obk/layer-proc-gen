@@ -1,25 +1,21 @@
 use std::sync::Arc;
 
 use layer_proc_gen::*;
-use rolling_grid::{GridIndex, GridPoint, RollingGrid};
+use rolling_grid::{GridIndex, GridPoint};
 use vec2::{Bounds, Point2d};
 
 mod tracing;
 use tracing::*;
 
 #[derive(Default)]
-struct TheLayer(RollingGrid<Self>);
+struct TheLayer;
 #[expect(dead_code)]
 #[derive(Clone, Default)]
 struct TheChunk(usize);
 
 impl Layer for TheLayer {
     type Chunk = TheChunk;
-    type Store = Arc<Self>;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.0
-    }
+    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
@@ -34,16 +30,12 @@ impl Chunk for TheChunk {
 }
 
 struct Player {
-    grid: RollingGrid<Self>,
     the_layer: LayerDependency<TheLayer>,
 }
 
 impl Player {
     pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
-        Self {
-            grid: Default::default(),
-            the_layer,
-        }
+        Self { the_layer }
     }
 }
 
@@ -52,11 +44,7 @@ struct PlayerChunk;
 
 impl Layer for Player {
     type Chunk = PlayerChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = T;
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
 
@@ -79,16 +67,12 @@ impl Chunk for PlayerChunk {
 }
 
 struct Map {
-    grid: RollingGrid<Self>,
     the_layer: LayerDependency<TheLayer>,
 }
 
 impl Map {
     pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
-        Self {
-            grid: Default::default(),
-            the_layer,
-        }
+        Self { the_layer }
     }
 }
 
@@ -97,11 +81,7 @@ struct MapChunk;
 
 impl Layer for Map {
     type Chunk = MapChunk;
-    type Store = Self;
-
-    fn rolling_grid(&self) -> &RollingGrid<Self> {
-        &self.grid
-    }
+    type Store<T> = T;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
@@ -125,27 +105,18 @@ impl Chunk for MapChunk {
 
 #[test]
 fn create_layer() {
-    let layer = TheLayer::default();
-    layer.rolling_grid().get_or_compute(
-        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
-        &layer,
-    );
+    let layer = TheLayer::default().into_dep();
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
 }
 
 #[test]
 fn double_assign_chunk() {
-    let layer = TheLayer::default();
-    layer.rolling_grid().get_or_compute(
-        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
-        &layer,
-    );
+    let layer = TheLayer::default().into_dep();
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
-    layer.rolling_grid().get_or_compute(
-        Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw),
-        &layer,
-    );
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
 }
 
 #[test]

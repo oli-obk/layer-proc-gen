@@ -18,7 +18,7 @@ pub trait Layer: Sized {
     /// Data structure that stores the layer. Usually `Arc<Self>`,
     /// but some layers are only used to simplify another layer, so
     /// they can get stored directly without the `Arc` indirection.
-    type Store: Borrow<Self> + From<Self>;
+    type Store<T>: Borrow<T> + From<T>;
 
     /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
     /// This is the area that should stay in memory at all times as it will get requested a lot.
@@ -28,32 +28,30 @@ pub trait Layer: Sized {
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
     const GRID_OVERLAP: u8 = 3;
 
-    fn rolling_grid(&self) -> &RollingGrid<Self>;
-
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
     fn into_dep(self) -> LayerDependency<Self> {
-        LayerDependency::from(Self::Store::from(self))
+        LayerDependency::from(Store::<Self>::from((RollingGrid::default(), self)))
     }
 
     fn new() -> LayerDependency<Self>
     where
         Self: Default,
     {
-        LayerDependency::from(Self::Store::from(Self::default()))
+        LayerDependency::from(Store::<Self>::from(Default::default()))
     }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 /// The Padding is in game coordinates.
 pub struct LayerDependency<L: Layer> {
-    layer: L::Store,
+    layer: Store<L>,
 }
 
 impl<L: Layer> Clone for LayerDependency<L>
 where
-    L::Store: Clone,
+    Store<L>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -62,12 +60,16 @@ where
     }
 }
 
+#[expect(type_alias_bounds)]
+type Store<L: Layer> = L::Store<Tuple<L>>;
+type Tuple<L> = (RollingGrid<L>, L);
+
 impl<L: Layer> LayerDependency<L> {
     /// Load a single chunks' dependencies.
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     fn ensure_chunk_providers(&self, index: GridPoint<L::Chunk>) {
         let chunk_bounds = L::Chunk::bounds(index);
-        self.layer.borrow().ensure_all_deps(chunk_bounds);
+        self.layer.borrow().1.ensure_all_deps(chunk_bounds);
     }
 
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -92,8 +94,8 @@ impl<L: Layer> LayerDependency<L> {
     pub fn get_or_compute(&self, index: GridPoint<L::Chunk>) -> <L::Chunk as Chunk>::Store {
         self.layer
             .borrow()
-            .rolling_grid()
-            .get_or_compute(index, self.layer.borrow())
+            .0
+            .get_or_compute(index, &self.layer.borrow().1)
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -115,7 +117,7 @@ impl<L: Layer> LayerDependency<L> {
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
 
-    fn from(layer: L::Store) -> Self {
+    fn from(layer: Store<L>) -> Self {
         Self { layer }
     }
 }
