@@ -601,7 +601,7 @@ struct Actions {
 }
 
 const ENGINE_POWER: f32 = 15.;
-const BRAKING_POWER: f32 = -2000.;
+const BRAKING_POWER: f32 = -200.;
 const FRICTION: f32 = -0.0001;
 const DRAG: f32 = -0.005;
 const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 3.;
@@ -658,7 +658,7 @@ impl Car {
         if actions.hand_brake {
             self.body.add_impulse(
                 -wheel_offset,
-                -self.body.velocity.normalize_or_zero() * BRAKING_POWER,
+                -self.body.velocity.clamp_length_max(BRAKING_POWER),
             );
         }
 
