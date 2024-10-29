@@ -34,7 +34,7 @@ struct City {
 
 impl Layer for Cities {
     type Chunk = CitiesChunk;
-    type Store = Arc<Self>;
+    type Store = Self;
 
     fn rolling_grid(&self) -> &RollingGrid<Self> {
         &self.0
@@ -47,15 +47,73 @@ impl Chunk for CitiesChunk {
     type Layer = Cities;
     type Store = Self;
 
-    const SIZE: Point2d<u8> = Point2d::splat(13);
+    const SIZE: Point2d<u8> = Point2d::splat(11);
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
             points: generate_points::<1, Self, 3>(index).map(|center| City {
                 center,
-                size: { (1000..2000).sample_single(&mut rng_for_point::<0, _>(center)) },
+                size: { (100..500).sample_single(&mut rng_for_point::<0, _>(center)) },
             }),
         }
+    }
+}
+
+/// Removes locations that are too close to others
+struct ReducedCities {
+    grid: RollingGrid<Self>,
+    cities: LayerDependency<Cities>,
+}
+
+#[derive(PartialEq, Debug, Clone, Default)]
+struct ReducedCitiesChunk {
+    points: ArrayVec<City, 3>,
+}
+
+impl Layer for ReducedCities {
+    type Chunk = ReducedCitiesChunk;
+    type Store = Arc<Self>;
+
+    fn rolling_grid(&self) -> &RollingGrid<Self> {
+        &self.grid
+    }
+
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.cities.ensure_loaded_in_bounds(chunk_bounds);
+    }
+}
+
+impl Chunk for ReducedCitiesChunk {
+    type Layer = ReducedCities;
+    type Store = Self;
+    const SIZE: Point2d<u8> = Point2d::splat(11);
+
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        let mut points = ArrayVec::new();
+        'points: for p in layer
+            .cities
+            .get_or_compute(index.into_same_chunk_size())
+            .points
+        {
+            for other in layer.cities.get_range(Bounds {
+                min: p.center,
+                max: p.center + Point2d::splat(p.size),
+            }) {
+                for other in other.points {
+                    if other == p {
+                        continue;
+                    }
+
+                    if other.center.manhattan_dist(p.center) < p.size + other.size
+                        && p.size < other.size
+                    {
+                        continue 'points;
+                    }
+                }
+            }
+            points.push(p);
+        }
+        ReducedCitiesChunk { points }
     }
 }
 
@@ -80,6 +138,7 @@ impl Layer for Locations {
 impl Chunk for LocationsChunk {
     type Layer = Locations;
     type Store = Self;
+    const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         LocationsChunk {
@@ -116,7 +175,7 @@ fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
 struct ReducedLocations {
     grid: RollingGrid<Self>,
     raw_locations: LayerDependency<Locations>,
-    cities: LayerDependency<Cities>,
+    cities: LayerDependency<ReducedCities>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -141,6 +200,7 @@ impl Layer for ReducedLocations {
 impl Chunk for ReducedLocationsChunk {
     type Layer = ReducedLocations;
     type Store = Self;
+    const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         let bounds = Self::bounds(index);
@@ -161,13 +221,13 @@ impl Chunk for ReducedLocationsChunk {
         {
             for other in layer.raw_locations.get_range(Bounds {
                 min: p,
-                max: p + Point2d::splat(100),
+                max: p + Point2d::splat(15),
             }) {
                 for other in other.points {
                     if other == p {
                         continue;
                     }
-                    if other.dist_squared(p) < 100 * 100 {
+                    if other.dist_squared(p) < 15 * 15 {
                         continue 'points;
                     }
                 }
@@ -205,6 +265,7 @@ impl Layer for Roads {
 impl Chunk for RoadsChunk {
     type Layer = Roads;
     type Store = Arc<Self>;
+    const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -274,7 +335,7 @@ fn gen_roads<T: Copy, U>(
 
 struct Highways {
     grid: RollingGrid<Self>,
-    cities: LayerDependency<Cities>,
+    cities: LayerDependency<ReducedCities>,
     locations: LayerDependency<ReducedLocations>,
 }
 
@@ -300,7 +361,7 @@ impl Layer for Highways {
 impl Chunk for HighwaysChunk {
     type Layer = Highways;
     type Store = Arc<Self>;
-    const SIZE: Point2d<u8> = CitiesChunk::SIZE;
+    const SIZE: Point2d<u8> = ReducedCitiesChunk::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -338,8 +399,8 @@ impl Chunk for HighwaysChunk {
                     closest
                 };
                 Line {
-                    start: closest(approx_start, road.start).unwrap(),
-                    end: closest(approx_end, road.end).unwrap(),
+                    start: closest(approx_start, road.start).unwrap_or(approx_start),
+                    end: closest(approx_end, road.end).unwrap_or(approx_end),
                 }
             })
             .collect();
@@ -371,7 +432,8 @@ impl Player {
                 length: 4.,
                 width: 2.,
                 body: Body {
-                    position: vec2(-154., -9.),
+                    position: vec2(-56., -43.),
+                    rotation: -0.75,
                     ..Default::default()
                 },
                 steering_limit: 15,
@@ -459,6 +521,11 @@ async fn main() {
     overlay_camera.offset = vec2(-1., 1.);
 
     let cities = Cities::new();
+    let cities = ReducedCities {
+        cities,
+        grid: Default::default(),
+    }
+    .into_dep();
     let locations = ReducedLocations {
         grid: Default::default(),
         raw_locations: Locations::new(),
@@ -471,7 +538,7 @@ async fn main() {
     };
     let highways = Highways {
         grid: Default::default(),
-        cities,
+        cities: cities.clone(),
         locations,
     };
     let mut player = Player::new(roads, highways);
@@ -487,10 +554,10 @@ async fn main() {
             right: is_key_down(KeyCode::D),
         });
         if is_key_pressed(KeyCode::Up) {
-            debug_zoom += 1.0;
+            debug_zoom *= 2.0;
         }
         if is_key_pressed(KeyCode::Down) {
-            debug_zoom -= 1.0;
+            debug_zoom /= 2.0;
         }
 
         smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.body.velocity.length() / 30. * 0.01;
@@ -568,6 +635,14 @@ async fn main() {
                 .iter()
             {
                 draw_line(road, debug_zoom, PURPLE)
+            }
+            for &city in cities
+                .get_or_compute(ReducedCitiesChunk::pos_to_grid(player.pos()))
+                .points
+                .iter()
+            {
+                let pos = point2screen(city.center);
+                draw_circle_lines(pos.x, pos.y, city.size as f32, debug_zoom, PURPLE);
             }
         }
 
