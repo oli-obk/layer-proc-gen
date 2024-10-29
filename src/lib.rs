@@ -154,8 +154,7 @@ pub trait Chunk: Sized + 'static {
 
     /// Get the grid the position is in
     fn pos_to_grid(point: Point2d) -> GridPoint<Self> {
-        Point2d::new(point.x >> Self::SIZE.x, point.y >> Self::SIZE.y)
-            .map(GridIndex::<Self>::from_raw)
+        RollingGrid::<Self::Layer>::pos_to_grid_pos(point)
     }
 }
 

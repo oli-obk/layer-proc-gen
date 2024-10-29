@@ -13,7 +13,7 @@ pub type GridPoint<C> = crate::vec2::Point2d<GridIndex<C>>;
 
 // TODO: avoid the box when generic const exprs allow for it
 // The Layer that contains it will already get put into an `Arc`
-pub struct RollingGrid<L: Layer> {
+pub(crate) struct RollingGrid<L: Layer> {
     /// The inner slice contains to `L::OVERLAP` entries,
     /// some of which are `None` if they have nevef been used
     /// so far.
@@ -244,13 +244,6 @@ impl<L: Layer> RollingGrid<L> {
         free.chunk.replace(chunk.clone());
         free.last_access.set(now);
         chunk
-    }
-
-    pub const fn pos_within_chunk(pos: Point2d, chunk_pos: GridPoint<L::Chunk>) -> Point2d {
-        pos.sub(Point2d {
-            x: chunk_pos.x.0 * (1 << L::Chunk::SIZE.x),
-            y: chunk_pos.y.0 * (1 << L::Chunk::SIZE.y),
-        })
     }
 
     pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<L::Chunk> {
