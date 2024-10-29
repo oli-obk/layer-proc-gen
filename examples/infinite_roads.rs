@@ -610,7 +610,6 @@ struct Actions {
 }
 
 const ENGINE_POWER: f32 = 15.;
-const BRAKING_POWER: f32 = -200.;
 const FRICTION: f32 = -0.0001;
 const DRAG: f32 = -0.005;
 const MAX_WHEEL_FRICTION_BEFORE_SLIP: f32 = 20.;
@@ -656,12 +655,12 @@ impl Car {
         let wheel_offset = heading * self.length / 2.0;
 
         // Calculate wheel friction forces
-        let rear_impulse = self.wheel_velocity(heading, -wheel_offset);
+        let rear_impulse = self.wheel_velocity(heading, -wheel_offset, actions.hand_brake);
         let rear_impulse = slip(rear_impulse);
         self.body.add_impulse(-wheel_offset, rear_impulse);
 
         let front_wheel_direction = Vec2::from_angle(steer_dir).rotate(heading);
-        let front_impulse = self.wheel_velocity(front_wheel_direction, wheel_offset);
+        let front_impulse = self.wheel_velocity(front_wheel_direction, wheel_offset, false);
         let front_impulse = slip(front_impulse);
         self.body.add_impulse(wheel_offset, front_impulse);
 
@@ -673,24 +672,22 @@ impl Car {
             self.body
                 .add_impulse(wheel_offset, front_wheel_direction * ENGINE_POWER);
         }
-        if actions.hand_brake {
-            self.body.add_impulse(
-                -wheel_offset,
-                -self.body.velocity.clamp_length_max(BRAKING_POWER),
-            );
-        }
 
         self.body.step(get_frame_time());
     }
 
     /// Compute and aggregate lateral and forward friction.
     /// friction is infinite up to a limit where the wheel slips (for drifting)
-    fn wheel_velocity(&mut self, direction: Vec2, wheel_position: Vec2) -> Vec2 {
+    fn wheel_velocity(&mut self, direction: Vec2, wheel_position: Vec2, braking: bool) -> Vec2 {
         let normal = direction.perp();
         let velocity = self.body.velocity_at_local_point(wheel_position);
         let lateral_velocity = velocity.dot(normal) * normal;
         let forward_velocity = velocity.dot(direction) * direction;
-        forward_velocity * FRICTION - lateral_velocity
+        if braking {
+            -forward_velocity - lateral_velocity
+        } else {
+            forward_velocity * FRICTION - lateral_velocity
+        }
     }
 
     fn draw(&self) {
