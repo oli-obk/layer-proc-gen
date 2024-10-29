@@ -723,6 +723,29 @@ impl Car {
             );
         }
 
+        draw_rectangle_ex(
+            rotation.x,
+            rotation.y,
+            2.,
+            1.,
+            DrawRectangleParams {
+                offset: vec2(0.5, 0.5),
+                rotation: self.steering.to_radians() + self.body.rotation,
+                color: BLACK,
+            },
+        );
+        draw_rectangle_ex(
+            -rotation.x,
+            -rotation.y,
+            2.,
+            1.,
+            DrawRectangleParams {
+                offset: vec2(0., 0.5),
+                rotation: self.body.rotation,
+                color: BLACK,
+            },
+        );
+
         draw_line(
             0.,
             0.,
