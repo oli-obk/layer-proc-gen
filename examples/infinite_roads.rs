@@ -6,6 +6,7 @@ use miniquad::window::screen_size;
 use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
+    f32::consts::PI,
     num::NonZeroU8,
     sync::Arc,
 };
@@ -26,10 +27,11 @@ struct CitiesChunk {
     points: [City; 3],
 }
 
-#[derive(PartialEq, Debug, Clone, Default, Copy)]
+#[derive(PartialEq, Debug, Clone, Default)]
 struct City {
     center: Point2d,
     size: i64,
+    name: String,
 }
 
 impl Layer for Cities {
@@ -47,9 +49,15 @@ impl Chunk for CitiesChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
-            points: generate_points::<1, Self, 3>(index).map(|center| City {
-                center,
-                size: { (100..500).sample_single(&mut rng_for_point::<0, _>(center)) },
+            points: generate_points::<1, Self, 3>(index).map(|center| {
+                let mut rng = rng_for_point::<0, _>(center);
+                City {
+                    center,
+                    size: { (100..500).sample_single(&mut rng) },
+                    name: (0..(3..12).sample_single(&mut rng))
+                        .map(|_| ('a'..='z').sample_single(&mut rng))
+                        .collect(),
+                }
             }),
         }
     }
@@ -191,7 +199,7 @@ impl Chunk for ReducedLocationsChunk {
             cities
                 .points
                 .iter()
-                .all(|&city| center.manhattan_dist(city.center) > city.size)
+                .all(|city| center.manhattan_dist(city.center) > city.size)
         }) {
             return Self::default();
         }
@@ -259,7 +267,7 @@ impl Chunk for RoadsChunk {
     }
 }
 
-fn gen_roads<T: Copy, U>(
+fn gen_roads<T: Clone, U>(
     chunks: impl Iterator<Item = impl Borrow<[T]>>,
     get_point: impl Fn(&T) -> Point2d,
     mk: impl Fn(&T, &T) -> U,
@@ -274,7 +282,7 @@ fn gen_roads<T: Copy, U>(
             start = points.len();
             n = grid.len();
         }
-        points.extend(grid.iter().copied());
+        points.extend(grid.iter().cloned());
     }
     // We only care about the roads starting from the center grid cell, as the others are not necessarily correct,
     // or will be computed by the other grid cells.
@@ -315,9 +323,19 @@ struct Highways {
     locations: LayerDependency<ReducedLocations>,
 }
 
+#[derive(PartialEq, Debug, Clone)]
+
+struct Highway {
+    line: Line,
+    start_city: String,
+    start_sign: String,
+    end_city: String,
+    end_sign: String,
+}
+
 #[derive(PartialEq, Debug, Default)]
 struct HighwaysChunk {
-    roads: Vec<Line>,
+    roads: Vec<Highway>,
 }
 
 impl Layer for Highways {
@@ -344,12 +362,20 @@ impl Chunk for HighwaysChunk {
                 )
                 .map(|chunk| chunk.points),
             |p| p.center,
-            |a, b| (a.size, b.size, a.center.to(b.center)),
+            |a, b| {
+                (
+                    a.size,
+                    b.size,
+                    a.center.to(b.center),
+                    a.name.clone(),
+                    b.name.clone(),
+                )
+            },
         );
 
         let roads = roads
             .into_iter()
-            .map(|(start_size, end_size, road)| {
+            .map(|(start_size, end_size, road, start_city, end_city)| {
                 let approx_start = road.with_manhattan_length(start_size).end;
                 let approx_end = road.flip().with_manhattan_length(end_size).end;
 
@@ -370,9 +396,17 @@ impl Chunk for HighwaysChunk {
                         });
                     closest
                 };
-                Line {
+                let line = Line {
                     start: closest(approx_start, road.start).unwrap_or(approx_start),
                     end: closest(approx_end, road.end).unwrap_or(approx_end),
+                };
+                let dist_km = ((line.len_squared() as f32).sqrt() / 1000.).ceil();
+                Highway {
+                    line,
+                    start_sign: format!("{end_city} {dist_km}km"),
+                    end_sign: format!("{start_city} {dist_km}km"),
+                    start_city,
+                    end_city,
                 }
             })
             .collect();
@@ -390,7 +424,7 @@ struct Player {
         Bounds<GridIndex<RoadsChunk>>,
         Bounds<GridIndex<HighwaysChunk>>,
     )>,
-    roads_for_last_grid_vision_range: RefCell<Vec<Line>>,
+    roads_for_last_grid_vision_range: RefCell<Vec<Highway>>,
 }
 
 impl Player {
@@ -461,7 +495,7 @@ impl Player {
         C::bounds_to_grid(self.vision_range::<C>(half_screen_visible_area))
     }
 
-    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, [Line]> {
+    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, [Highway]> {
         let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
         let highway_vision_range = self.grid_vision_range(half_screen_visible_area);
         if (grid_vision_range, highway_vision_range) != self.last_grid_vision_range.get() {
@@ -470,7 +504,15 @@ impl Player {
             let mut roads = self.roads_for_last_grid_vision_range.borrow_mut();
             roads.clear();
             for index in grid_vision_range.iter() {
-                roads.extend_from_slice(&self.roads.get_or_compute(index).roads);
+                for &line in &self.roads.get_or_compute(index).roads {
+                    roads.push(Highway {
+                        line,
+                        start_city: String::new(),
+                        start_sign: String::new(),
+                        end_city: String::new(),
+                        end_sign: String::new(),
+                    });
+                }
             }
             for index in highway_vision_range.iter() {
                 roads.extend_from_slice(&self.highways.get_or_compute(index).roads);
@@ -553,7 +595,6 @@ async fn main() {
             );
         };
 
-        // TODO: make the vision range calculation robust for arbitrary algorithms.
         let padding = camera.screen_to_world(Vec2::splat(0.));
         if debug_zoom != 1. {
             draw_rectangle_lines(
@@ -579,17 +620,66 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        for &line in player.roads(padding).iter() {
-            let start = point2screen(line.start);
-            let end = point2screen(line.end);
-            draw_line(line, 8., GRAY);
+        for highway in player.roads(padding).iter() {
+            let start = point2screen(highway.line.start);
+            let end = point2screen(highway.line.end);
+            draw_line(highway.line, 8., GRAY);
             draw_circle(start.x, start.y, 4., GRAY);
             draw_circle(start.x, start.y, 0.1, WHITE);
             draw_circle(end.x, end.y, 4., GRAY);
             draw_circle(end.x, end.y, 0.1, WHITE);
+            for (start, end, sign, name) in [
+                (start, end, &highway.start_sign, &highway.start_city),
+                (end, start, &highway.end_sign, &highway.end_city),
+            ] {
+                if sign.is_empty() && name.is_empty() {
+                    continue;
+                }
+                let direction = end - start;
+                let mut rotation = direction.to_angle();
+                let mut sign_offset = 6. * 0.2;
+                let mut name_offset = 14. * 0.2;
+                if rotation.abs() < PI / 2. {
+                    std::mem::swap(&mut sign_offset, &mut name_offset);
+                }
+                if rotation > PI / 2. {
+                    rotation -= PI;
+                } else if rotation < -PI / 2. {
+                    rotation += PI;
+                }
+                let pos = start
+                    + direction.perp().normalize() * (sign_offset + 4.)
+                    + direction.normalize() * 100.;
+                draw_text_ex(
+                    sign,
+                    pos.x,
+                    pos.y,
+                    TextParams {
+                        font_size: 20,
+                        font_scale: 0.2,
+                        rotation,
+                        color: WHITE,
+                        ..Default::default()
+                    },
+                );
+                let pos = start - direction.perp().normalize() * name_offset
+                    + direction.normalize() * 50.;
+                draw_text_ex(
+                    name,
+                    pos.x,
+                    pos.y,
+                    TextParams {
+                        font_size: 20,
+                        font_scale: 0.2,
+                        rotation,
+                        color: WHITE,
+                        ..Default::default()
+                    },
+                );
+            }
         }
-        for &line in player.roads(padding).iter() {
-            draw_line(line, 0.2, WHITE);
+        for highway in player.roads(padding).iter() {
+            draw_line(highway.line, 0.2, WHITE);
         }
 
         if debug_zoom != 1.0 {
@@ -601,7 +691,7 @@ async fn main() {
             {
                 draw_line(road, debug_zoom, PURPLE)
             }
-            for &city in cities
+            for city in cities
                 .get_or_compute(ReducedCitiesChunk::pos_to_grid(player.pos()))
                 .points
                 .iter()
@@ -613,26 +703,28 @@ async fn main() {
 
         player.car.draw();
 
-        set_camera(&overlay_camera);
-        draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
-        draw_text(
-            &format!(
-                "speed: {:.0}km/h",
-                player.car.body.velocity.length() * 3600. / 1000.
-            ),
-            0.,
-            60.,
-            30.,
-            WHITE,
-        );
-        draw_multiline_text(
-            &format!("{:#.2?}", player.car.body),
-            0.,
-            90.,
-            30.,
-            Some(1.),
-            WHITE,
-        );
+        if debug_zoom != 1.0 {
+            set_camera(&overlay_camera);
+            draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
+            draw_text(
+                &format!(
+                    "speed: {:.0}km/h",
+                    player.car.body.velocity.length() * 3600. / 1000.
+                ),
+                0.,
+                60.,
+                30.,
+                WHITE,
+            );
+            draw_multiline_text(
+                &format!("{:#.2?}", player.car.body),
+                0.,
+                90.,
+                30.,
+                Some(1.),
+                WHITE,
+            );
+        }
 
         next_frame().await
     }

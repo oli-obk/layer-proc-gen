@@ -97,6 +97,10 @@ impl Line {
             end: self.start,
         }
     }
+
+    pub fn len_squared(&self) -> i64 {
+        (self.end - self.start).len_squared()
+    }
 }
 
 impl<T: Num> Line<T> {
