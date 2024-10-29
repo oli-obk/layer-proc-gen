@@ -58,7 +58,7 @@ impl Layer for Player {
         &self.grid
     }
 
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
 
     const GRID_OVERLAP: u8 = 1;
 
@@ -110,7 +110,7 @@ impl Layer for Map {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
     }
 
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(1);
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
 
     const GRID_OVERLAP: u8 = 1;
 }

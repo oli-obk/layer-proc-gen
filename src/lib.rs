@@ -20,10 +20,10 @@ pub trait Layer: Sized {
     /// they can get stored directly without the `Arc` indirection.
     type Store: Borrow<Self> + From<Self>;
 
-    /// Internal `RollingGrid` size. This is the area that should stay in memory at all times as it will
-    /// get requested a lot.
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(32);
-    /// Internal `RollingGrid` overlap before the system panics. Basically scales the grid width/height by
+    /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
+    /// This is the area that should stay in memory at all times as it will get requested a lot.
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(5);
+    /// Internal `RollingGrid` overlap before the system drops old chunks. Basically scales the grid width/height by
     /// this number to allow moving across the grid width/height boundaries completely transparently.
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
     const GRID_OVERLAP: u8 = 3;

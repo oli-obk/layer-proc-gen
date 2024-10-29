@@ -28,7 +28,7 @@ impl<L: Layer> Default for RollingGrid<L> {
                     .take(L::GRID_OVERLAP.into())
                     .collect()
             })
-            .take(usize::from(L::GRID_SIZE.x) * usize::from(L::GRID_SIZE.y))
+            .take((1 << L::GRID_SIZE.x) << L::GRID_SIZE.y)
             .collect(),
         }
     }
@@ -265,12 +265,9 @@ impl<L: Layer> RollingGrid<L> {
     }
 
     const fn index_of_point(point: GridPoint<L::Chunk>) -> usize {
-        let point = Point2d {
-            x: point.x.0,
-            y: point.y.0,
-        }
-        .rem_euclid(L::GRID_SIZE);
-        point.x + point.y * L::GRID_SIZE.x as usize
+        let x = point.x.0.rem_euclid(1 << L::GRID_SIZE.x) as usize;
+        let y = point.y.0.rem_euclid(1 << L::GRID_SIZE.y) as usize;
+        x + (y << L::GRID_SIZE.x)
     }
 
     #[track_caller]
