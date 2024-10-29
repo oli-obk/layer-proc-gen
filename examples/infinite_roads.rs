@@ -373,6 +373,7 @@ impl Player {
                     ..Default::default()
                 },
                 steering_limit: 15,
+                steering: 0.,
                 color: DARKPURPLE,
                 braking: false,
                 reversing: false,
@@ -572,7 +573,14 @@ async fn main() {
 
         set_camera(&overlay_camera);
         draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
-        draw_text(&format!("{:.2?}", player.car.body), 0., 60., 30., WHITE);
+        draw_multiline_text(
+            &format!("{:#.2?}", player.car.body),
+            0.,
+            60.,
+            30.,
+            Some(1.),
+            WHITE,
+        );
 
         next_frame().await
     }
@@ -586,6 +594,7 @@ struct Car {
     color: Color,
     /// Maximum angle of the front wheels, in degrees
     steering_limit: i8,
+    steering: f32,
     /// Enable the braking lights
     braking: bool,
     /// Enable the reversing lights
@@ -612,14 +621,22 @@ impl Car {
         let heading = Vec2::from_angle(self.body.rotation);
         // Get Inputs
 
-        let turn = if actions.left {
-            -1.
+        const STEERING_SPEED: f32 = 0.5;
+        self.steering += if actions.left {
+            -STEERING_SPEED
         } else if actions.right {
-            1.
+            STEERING_SPEED
         } else {
-            0.
+            if self.steering.abs() < STEERING_SPEED {
+                -self.steering
+            } else {
+                -self.steering.signum() * STEERING_SPEED
+            }
         };
-        let steer_dir = turn * f32::from(self.steering_limit).to_radians();
+        self.steering = self
+            .steering
+            .clamp((-self.steering_limit).into(), self.steering_limit.into());
+        let steer_dir = f32::from(self.steering).to_radians();
 
         self.braking = actions.hand_brake;
         self.reversing = actions.reverse;
