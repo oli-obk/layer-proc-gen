@@ -116,8 +116,8 @@ fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
 /// Removes locations that are too close to others
 struct ReducedLocations {
     grid: RollingGrid<Self>,
-    raw_locations: LayerDependency<Locations, 0, 0>,
-    cities: LayerDependency<Cities, 0, 0>,
+    raw_locations: LayerDependency<Locations>,
+    cities: LayerDependency<Cities>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -180,7 +180,7 @@ impl Chunk for ReducedLocationsChunk {
 
 struct Roads {
     grid: RollingGrid<Self>,
-    locations: LayerDependency<ReducedLocations, 256, 256>,
+    locations: LayerDependency<ReducedLocations>,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -273,8 +273,8 @@ fn gen_roads<T: Copy, U>(
 
 struct Highways {
     grid: RollingGrid<Self>,
-    cities: LayerDependency<Cities, 256, 256>,
-    locations: LayerDependency<ReducedLocations, 256, 256>,
+    cities: LayerDependency<Cities>,
+    locations: LayerDependency<ReducedLocations>,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -346,8 +346,8 @@ impl Chunk for HighwaysChunk {
 }
 
 struct Player {
-    roads: LayerDependency<Roads, 1000, 1000>,
-    highways: LayerDependency<Highways, 1000, 1000>,
+    roads: LayerDependency<Roads>,
+    highways: LayerDependency<Highways>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,

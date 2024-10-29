@@ -34,7 +34,7 @@ impl Chunk for TheChunk {
 
 struct Player {
     grid: RollingGrid<Self>,
-    the_layer: LayerDependency<TheLayer, 16, 16>,
+    the_layer: LayerDependency<TheLayer>,
 }
 
 impl Player {
@@ -81,7 +81,7 @@ impl Chunk for PlayerChunk {
 
 struct Map {
     grid: RollingGrid<Self>,
-    the_layer: LayerDependency<TheLayer, 100, 100>,
+    the_layer: LayerDependency<TheLayer>,
 }
 
 impl Map {
@@ -156,10 +156,10 @@ fn create_player() {
     init_tracing();
     let the_layer = Arc::new(TheLayer::default());
     let player = Player::new(the_layer.clone());
-    let player = LayerDependency::<_, 0, 0>::from(Arc::new(player));
+    let player = LayerDependency::from(Arc::new(player));
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
     let map = Map::new(the_layer);
-    let map = LayerDependency::<_, 0, 0>::from(Arc::new(map));
+    let map = LayerDependency::from(Arc::new(map));
     map.ensure_loaded_in_bounds(Bounds::point(player_pos));
 }

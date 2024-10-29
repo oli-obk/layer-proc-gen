@@ -30,19 +30,12 @@ pub trait Layer: Sized {
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
-// FIXME: use `const PADDING: Point2d`
 /// The Padding is in game coordinates.
-pub struct LayerDependency<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> {
+pub struct LayerDependency<L: Layer> {
     layer: Arc<L>,
 }
 
-impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
-    LayerDependency<L, PADDING_X, PADDING_Y>
-{
-    pub const fn padding(&self) -> Point2d {
-        Point2d::new(PADDING_X, PADDING_Y)
-    }
-
+impl<L: Layer> LayerDependency<L> {
     /// Load a single chunks' dependencies.
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     fn ensure_chunk_providers(&self, index: GridPoint<L::Chunk>) {
@@ -56,8 +49,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     #[track_caller]
     #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
-        let required_bounds = chunk_bounds.pad(self.padding());
-        let indices = L::Chunk::bounds_to_grid(required_bounds);
+        let indices = L::Chunk::bounds_to_grid(chunk_bounds);
         trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
         let center = indices.center();
@@ -94,9 +86,7 @@ impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64>
     }
 }
 
-impl<L: Layer, const PADDING_X: i64, const PADDING_Y: i64> From<Arc<L>>
-    for LayerDependency<L, PADDING_X, PADDING_Y>
-{
+impl<L: Layer> From<Arc<L>> for LayerDependency<L> {
     fn from(layer: Arc<L>) -> Self {
         Self { layer }
     }
