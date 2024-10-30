@@ -639,8 +639,10 @@ async fn main() {
                 let mut rotation = direction.to_angle();
                 let mut sign_offset = 6. * 0.2;
                 let mut name_offset = 14. * 0.2;
+                let mut sign_line_distance = -1.;
                 if rotation.abs() < PI / 2. {
                     std::mem::swap(&mut sign_offset, &mut name_offset);
+                    sign_line_distance *= -1.;
                 }
                 if rotation > PI / 2. {
                     rotation -= PI;
@@ -650,10 +652,12 @@ async fn main() {
                 let pos = start
                     + direction.perp().normalize() * (sign_offset + 4.)
                     + direction.normalize() * 100.;
-                draw_text_ex(
+                draw_multiline_text_ex(
                     sign,
                     pos.x,
                     pos.y,
+                    // bug in macroquad: line distance factor is applied on y axis, ignoring rotation
+                    Some(sign_line_distance),
                     TextParams {
                         font_size: 20,
                         font_scale: 0.2,
