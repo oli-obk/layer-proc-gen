@@ -40,48 +40,72 @@ impl From<Point2d> for City {
     }
 }
 
-/// Removes locations that are too close to others
-struct ReducedCities {
-    cities: LayerDependency<UniformPointLayer<City, 11, 1>>,
+trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
+    /// The radius around the thing to be kept free from other things.
+    fn radius(&self) -> i64;
+    fn position(&self) -> Point2d;
 }
 
-#[derive(PartialEq, Debug, Clone, Default)]
-struct ReducedCitiesChunk {
-    points: ArrayVec<City, 7>,
-}
+impl Reducible for City {
+    fn radius(&self) -> i64 {
+        self.size
+    }
 
-impl Layer for ReducedCities {
-    type Chunk = ReducedCitiesChunk;
-    type Store<T> = Arc<T>;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.cities.ensure_loaded_in_bounds(chunk_bounds);
+    fn position(&self) -> Point2d {
+        self.center
     }
 }
 
-impl Chunk for ReducedCitiesChunk {
-    type Layer = ReducedCities;
+/// Removes locations that are too close to others
+struct ReducedUniformPointLayer<P: From<Point2d> + Clone + 'static> {
+    points: LayerDependency<UniformPointLayer<P, 11, 1>>,
+}
+
+#[derive(PartialEq, Debug, Clone)]
+struct ReducedUniformPointChunk<P> {
+    points: ArrayVec<P, 7>,
+}
+
+impl<P> Default for ReducedUniformPointChunk<P> {
+    fn default() -> Self {
+        Self {
+            points: Default::default(),
+        }
+    }
+}
+
+impl<P: Reducible> Layer for ReducedUniformPointLayer<P> {
+    type Chunk = ReducedUniformPointChunk<P>;
+    type Store<T> = Arc<T>;
+
+    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
+        self.points.ensure_loaded_in_bounds(chunk_bounds);
+    }
+}
+
+impl<P: Reducible> Chunk for ReducedUniformPointChunk<P> {
+    type Layer = ReducedUniformPointLayer<P>;
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(11);
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         let mut points = ArrayVec::new();
         'points: for p in layer
-            .cities
+            .points
             .get_or_compute(index.into_same_chunk_size())
             .points
         {
-            for other in layer.cities.get_range(Bounds {
-                min: p.center,
-                max: p.center + Point2d::splat(p.size),
+            for other in layer.points.get_range(Bounds {
+                min: p.position(),
+                max: p.position() + Point2d::splat(p.radius()),
             }) {
                 for other in other.points {
                     if other == p {
                         continue;
                     }
 
-                    if other.center.manhattan_dist(p.center) < p.size + other.size
-                        && p.size < other.size
+                    if other.position().manhattan_dist(p.position()) < p.radius() + other.radius()
+                        && p.radius() < other.radius()
                     {
                         continue 'points;
                     }
@@ -89,14 +113,14 @@ impl Chunk for ReducedCitiesChunk {
             }
             points.push(p);
         }
-        ReducedCitiesChunk { points }
+        ReducedUniformPointChunk { points }
     }
 }
 
 /// Removes locations that are too close to others
 struct ReducedLocations {
     raw_locations: LayerDependency<UniformPointLayer<Point2d, 6, 0>>,
-    cities: LayerDependency<ReducedCities>,
+    cities: LayerDependency<ReducedUniformPointLayer<City>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -246,7 +270,7 @@ fn gen_roads<T: Clone, U>(
 }
 
 struct Highways {
-    cities: LayerDependency<ReducedCities>,
+    cities: LayerDependency<ReducedUniformPointLayer<City>>,
     locations: LayerDependency<ReducedLocations>,
 }
 
@@ -278,7 +302,7 @@ impl Layer for Highways {
 impl Chunk for HighwaysChunk {
     type Layer = Highways;
     type Store = Arc<Self>;
-    const SIZE: Point2d<u8> = ReducedCitiesChunk::SIZE;
+    const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City>::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -462,7 +486,7 @@ async fn main() {
     overlay_camera.offset = vec2(-1., 1.);
 
     let cities = UniformPointLayer::new();
-    let cities = ReducedCities { cities }.into_dep();
+    let cities = ReducedUniformPointLayer { points }.into_dep();
     let locations = ReducedLocations {
         raw_locations: Layer::new(),
         cities: cities.clone(),
@@ -623,7 +647,7 @@ async fn main() {
                 draw_line(road, debug_zoom, PURPLE)
             }
             for city in cities
-                .get_or_compute(ReducedCitiesChunk::pos_to_grid(player.pos()))
+                .get_or_compute(ReducedUniformPointChunk::pos_to_grid(player.pos()))
                 .points
                 .iter()
             {
