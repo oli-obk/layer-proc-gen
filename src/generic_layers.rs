@@ -28,8 +28,13 @@ fn poisson_1(val: f32) -> u8 {
     }
 }
 
-#[derive(Default)]
 pub struct UniformPointLayer<P, const SIZE: u8, const SALT: u64>(PhantomData<P>);
+
+impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointLayer<P, SIZE, SALT> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct UniformPointChunk<P, const SIZE: u8, const SALT: u64> {

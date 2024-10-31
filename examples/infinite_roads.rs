@@ -56,17 +56,46 @@ impl Reducible for City {
     }
 }
 
+#[derive(Clone, PartialEq, Default)]
+struct Intersection(Point2d);
+
+impl From<Point2d> for Intersection {
+    fn from(value: Point2d) -> Self {
+        Self(value)
+    }
+}
+
+impl Reducible for Intersection {
+    fn radius(&self) -> i64 {
+        50
+    }
+
+    fn position(&self) -> Point2d {
+        self.0
+    }
+}
+
 /// Removes locations that are too close to others
-struct ReducedUniformPointLayer<P: From<Point2d> + Clone + 'static> {
-    points: LayerDependency<UniformPointLayer<P, 11, 1>>,
+struct ReducedUniformPointLayer<P: Reducible, const SIZE: u8, const SALT: u64> {
+    points: LayerDependency<UniformPointLayer<P, SIZE, SALT>>,
+}
+
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Default
+    for ReducedUniformPointLayer<P, SIZE, SALT>
+{
+    fn default() -> Self {
+        Self {
+            points: Layer::new(),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
-struct ReducedUniformPointChunk<P> {
+struct ReducedUniformPointChunk<P, const SIZE: u8, const SALT: u64> {
     points: ArrayVec<P, 7>,
 }
 
-impl<P> Default for ReducedUniformPointChunk<P> {
+impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P, SIZE, SALT> {
     fn default() -> Self {
         Self {
             points: Default::default(),
@@ -74,8 +103,10 @@ impl<P> Default for ReducedUniformPointChunk<P> {
     }
 }
 
-impl<P: Reducible> Layer for ReducedUniformPointLayer<P> {
-    type Chunk = ReducedUniformPointChunk<P>;
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
+    for ReducedUniformPointLayer<P, SIZE, SALT>
+{
+    type Chunk = ReducedUniformPointChunk<P, SIZE, SALT>;
     type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
@@ -83,10 +114,12 @@ impl<P: Reducible> Layer for ReducedUniformPointLayer<P> {
     }
 }
 
-impl<P: Reducible> Chunk for ReducedUniformPointChunk<P> {
-    type Layer = ReducedUniformPointLayer<P>;
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
+    for ReducedUniformPointChunk<P, SIZE, SALT>
+{
+    type Layer = ReducedUniformPointLayer<P, SIZE, SALT>;
     type Store = Self;
-    const SIZE: Point2d<u8> = Point2d::splat(11);
+    const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         let mut points = ArrayVec::new();
@@ -119,8 +152,8 @@ impl<P: Reducible> Chunk for ReducedUniformPointChunk<P> {
 
 /// Removes locations that are too close to others
 struct ReducedLocations {
-    raw_locations: LayerDependency<UniformPointLayer<Point2d, 6, 0>>,
-    cities: LayerDependency<ReducedUniformPointLayer<City>>,
+    raw_locations: LayerDependency<ReducedUniformPointLayer<Intersection, 6, 0>>,
+    cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -154,28 +187,15 @@ impl Chunk for ReducedLocationsChunk {
         }) {
             return Self::default();
         }
-        let mut points = ArrayVec::new();
-        'points: for p in layer
-            .raw_locations
-            .get_or_compute(index.into_same_chunk_size())
-            .points
-        {
-            for other in layer.raw_locations.get_range(Bounds {
-                min: p,
-                max: p + Point2d::splat(15),
-            }) {
-                for other in other.points {
-                    if other == p {
-                        continue;
-                    }
-                    if other.dist_squared(p) < 15 * 15 {
-                        continue 'points;
-                    }
-                }
-            }
-            points.push(p);
+        ReducedLocationsChunk {
+            points: layer
+                .raw_locations
+                .get_or_compute(index.into_same_chunk_size())
+                .points
+                .iter()
+                .map(|p| p.0)
+                .collect(),
         }
-        ReducedLocationsChunk { points }
     }
 }
 
@@ -270,7 +290,7 @@ fn gen_roads<T: Clone, U>(
 }
 
 struct Highways {
-    cities: LayerDependency<ReducedUniformPointLayer<City>>,
+    cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
     locations: LayerDependency<ReducedLocations>,
 }
 
@@ -302,7 +322,7 @@ impl Layer for Highways {
 impl Chunk for HighwaysChunk {
     type Layer = Highways;
     type Store = Arc<Self>;
-    const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City>::SIZE;
+    const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City, 11, 1>::SIZE;
 
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -485,7 +505,7 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = UniformPointLayer::new();
+    let points = UniformPointLayer::new();
     let cities = ReducedUniformPointLayer { points }.into_dep();
     let locations = ReducedLocations {
         raw_locations: Layer::new(),
