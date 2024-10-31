@@ -10,6 +10,8 @@ use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{instrument, trace};
 use vec2::{Bounds, Point2d};
 
+pub mod generic_layers;
+
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Sized {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
