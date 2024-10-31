@@ -7,6 +7,7 @@ use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
     f32::consts::PI,
+    marker::PhantomData,
     num::NonZeroU8,
     sync::Arc,
 };
@@ -38,10 +39,19 @@ fn poisson_1(val: f32) -> u8 {
 }
 
 #[derive(Default)]
-struct Cities;
-#[derive(PartialEq, Debug, Clone, Default)]
-struct CitiesChunk {
-    points: ArrayVec<City, 7>,
+struct UniformPointLayer<P, const SIZE: u8, const SALT: u64>(PhantomData<P>);
+
+#[derive(PartialEq, Debug, Clone)]
+struct UniformPointChunk<P, const SIZE: u8, const SALT: u64> {
+    points: ArrayVec<P, 7>,
+}
+
+impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointChunk<P, SIZE, SALT> {
+    fn default() -> Self {
+        Self {
+            points: Default::default(),
+        }
+    }
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -51,32 +61,39 @@ struct City {
     name: String,
 }
 
-impl Layer for Cities {
-    type Chunk = CitiesChunk;
+impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
+    for UniformPointLayer<P, SIZE, SALT>
+{
+    type Chunk = UniformPointChunk<P, SIZE, SALT>;
     type Store<T> = T;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
-impl Chunk for CitiesChunk {
-    type Layer = Cities;
+impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
+    for UniformPointChunk<P, SIZE, SALT>
+{
+    type Layer = UniformPointLayer<P, SIZE, SALT>;
     type Store = Self;
 
-    const SIZE: Point2d<u8> = Point2d::splat(11);
+    const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        let points = generate_points::<SALT, Self>(index);
         Self {
-            points: generate_points::<1, Self>(index)
-                .map(|center| {
-                    let mut rng = rng_for_point::<0, _>(center);
-                    City {
-                        center,
-                        size: { (100..500).sample_single(&mut rng) },
-                        name: (0..(3..12).sample_single(&mut rng))
-                            .map(|_| ('a'..='z').sample_single(&mut rng))
-                            .collect(),
-                    }
-                })
+            points: points.map(P::from).collect(),
+        }
+    }
+}
+
+impl From<Point2d> for City {
+    fn from(center: Point2d) -> Self {
+        let mut rng = rng_for_point::<0, _>(center);
+        City {
+            center,
+            size: { (100..500).sample_single(&mut rng) },
+            name: (0..(3..12).sample_single(&mut rng))
+                .map(|_| ('a'..='z').sample_single(&mut rng))
                 .collect(),
         }
     }
@@ -84,7 +101,7 @@ impl Chunk for CitiesChunk {
 
 /// Removes locations that are too close to others
 struct ReducedCities {
-    cities: LayerDependency<Cities>,
+    cities: LayerDependency<UniformPointLayer<City, 11, 1>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -135,32 +152,6 @@ impl Chunk for ReducedCitiesChunk {
     }
 }
 
-#[derive(Default)]
-struct Locations;
-#[derive(PartialEq, Debug, Clone, Default)]
-struct LocationsChunk {
-    points: ArrayVec<Point2d, 7>,
-}
-
-impl Layer for Locations {
-    type Chunk = LocationsChunk;
-    type Store<T> = T;
-
-    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
-}
-
-impl Chunk for LocationsChunk {
-    type Layer = Locations;
-    type Store = Self;
-    const SIZE: Point2d<u8> = Point2d::splat(6);
-
-    fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
-        LocationsChunk {
-            points: generate_points::<0, Self>(index).collect(),
-        }
-    }
-}
-
 fn generate_points<const SALT: u64, C: Chunk + 'static>(
     index: GridPoint<C>,
 ) -> impl Iterator<Item = Point2d> {
@@ -188,13 +179,13 @@ fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
 
 /// Removes locations that are too close to others
 struct ReducedLocations {
-    raw_locations: LayerDependency<Locations>,
+    raw_locations: LayerDependency<UniformPointLayer<Point2d, 6, 0>>,
     cities: LayerDependency<ReducedCities>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
 struct ReducedLocationsChunk {
-    points: ArrayVec<Point2d, 3>,
+    points: ArrayVec<Point2d, 7>,
 }
 
 impl Layer for ReducedLocations {
@@ -554,10 +545,10 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = Cities::new();
+    let cities = UniformPointLayer::new();
     let cities = ReducedCities { cities }.into_dep();
     let locations = ReducedLocations {
-        raw_locations: Locations::new(),
+        raw_locations: Layer::new(),
         cities: cities.clone(),
     }
     .into_dep();
