@@ -790,15 +790,6 @@ impl Car {
                 color: BLACK,
             },
         );
-
-        draw_line(
-            0.,
-            0.,
-            self.body.velocity.x,
-            self.body.velocity.y,
-            1.,
-            YELLOW,
-        );
     }
 }
 
