@@ -80,6 +80,7 @@ struct ReducedLocations {
 #[derive(PartialEq, Debug, Clone, Default)]
 struct ReducedLocationsChunk {
     points: ArrayVec<Point2d, 7>,
+    trees: ArrayVec<Point2d, 7>,
 }
 
 impl Layer for ReducedLocations {
@@ -100,22 +101,28 @@ impl Chunk for ReducedLocationsChunk {
     fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         let bounds = Self::bounds(index);
         let center = bounds.center();
+        let points = layer
+            .raw_locations
+            .get_or_compute(index.into_same_chunk_size())
+            .points
+            .iter()
+            .map(|p| p.0)
+            .collect();
         if layer.cities.get_range(bounds).all(|cities| {
             cities
                 .points
                 .iter()
                 .all(|city| center.manhattan_dist(city.center) > city.size)
         }) {
-            return Self::default();
-        }
-        ReducedLocationsChunk {
-            points: layer
-                .raw_locations
-                .get_or_compute(index.into_same_chunk_size())
-                .points
-                .iter()
-                .map(|p| p.0)
-                .collect(),
+            ReducedLocationsChunk {
+                points: ArrayVec::default(),
+                trees: points,
+            }
+        } else {
+            ReducedLocationsChunk {
+                points,
+                trees: ArrayVec::default(),
+            }
         }
     }
 }
@@ -308,6 +315,7 @@ impl Chunk for HighwaysChunk {
 
 struct Player {
     roads: LayerDependency<Roads>,
+    trees: LayerDependency<ReducedLocations>,
     highways: LayerDependency<Highways>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
@@ -316,14 +324,19 @@ struct Player {
         Bounds<GridIndex<RoadsChunk>>,
         Bounds<GridIndex<HighwaysChunk>>,
     )>,
-    roads_for_last_grid_vision_range: RefCell<Vec<Highway>>,
+    roads_for_last_grid_vision_range: RefCell<(Vec<Highway>, Vec<Tree>)>,
+}
+
+struct Tree {
+    pos: Point2d,
 }
 
 impl Player {
-    pub fn new(roads: Roads, highways: Highways) -> Self {
+    pub fn new(roads: Roads, highways: Highways, trees: LayerDependency<ReducedLocations>) -> Self {
         Self {
             roads: roads.into_dep(),
             highways: highways.into_dep(),
+            trees,
             max_zoom_in: NonZeroU8::new(5).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
             car: Car {
@@ -345,7 +358,7 @@ impl Player {
                 Bounds::point(Point2d::splat(GridIndex::from_raw(0))).into(),
             )
                 .into(),
-            roads_for_last_grid_vision_range: vec![].into(),
+            roads_for_last_grid_vision_range: (vec![], vec![]).into(),
         }
     }
 
@@ -387,14 +400,16 @@ impl Player {
         C::bounds_to_grid(self.vision_range::<C>(half_screen_visible_area))
     }
 
-    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, [Highway]> {
+    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, (Vec<Highway>, Vec<Tree>)> {
         let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
         let highway_vision_range = self.grid_vision_range(half_screen_visible_area);
         if (grid_vision_range, highway_vision_range) != self.last_grid_vision_range.get() {
             self.last_grid_vision_range
                 .set((grid_vision_range, highway_vision_range));
             let mut roads = self.roads_for_last_grid_vision_range.borrow_mut();
+            let (roads, trees) = &mut *roads;
             roads.clear();
+            trees.clear();
             for index in grid_vision_range.iter() {
                 for &line in &self.roads.get_or_compute(index).roads {
                     roads.push(Highway {
@@ -409,8 +424,17 @@ impl Player {
             for index in highway_vision_range.iter() {
                 roads.extend_from_slice(&self.highways.get_or_compute(index).roads);
             }
+            for index in grid_vision_range.iter() {
+                for &tree in &self
+                    .trees
+                    .get_or_compute(index.into_same_chunk_size())
+                    .trees
+                {
+                    trees.push(Tree { pos: tree });
+                }
+            }
         }
-        Ref::map(self.roads_for_last_grid_vision_range.borrow(), |r| &**r)
+        self.roads_for_last_grid_vision_range.borrow()
     }
 }
 
@@ -437,9 +461,9 @@ async fn main() {
     };
     let highways = Highways {
         cities: cities.clone(),
-        locations,
+        locations: locations.clone(),
     };
-    let mut player = Player::new(roads, highways);
+    let mut player = Player::new(roads, highways, locations);
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
 
@@ -511,7 +535,9 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        for highway in player.roads(padding).iter() {
+        let roads = player.roads(padding);
+        let (roads, trees) = &*roads;
+        for highway in roads.iter() {
             let start = point2screen(highway.line.start);
             let end = point2screen(highway.line.end);
             draw_line(highway.line, 8., GRAY);
@@ -573,8 +599,23 @@ async fn main() {
                 );
             }
         }
-        for highway in player.roads(padding).iter() {
+        for highway in roads.iter() {
             draw_line(highway.line, 0.2, WHITE);
+        }
+
+        for tree in trees.iter() {
+            let pos = point2screen(tree.pos);
+            draw_circle(
+                pos.x,
+                pos.y,
+                8.,
+                Color {
+                    r: 0.0,
+                    g: 0.30,
+                    b: 0.05,
+                    a: 1.0,
+                },
+            );
         }
 
         if debug_zoom != 1.0 {

@@ -215,6 +215,15 @@ impl<T: Copy> Point2d<T> {
     }
 }
 
+impl<T: Neg<Output = T>> Point2d<T> {
+    pub fn perp(self) -> Self {
+        Self {
+            x: -self.y,
+            y: self.x,
+        }
+    }
+}
+
 pub trait Abs {
     fn abs(self) -> Self;
 }
@@ -237,7 +246,11 @@ impl<T: Copy + Sub<Output = T> + Mul<Output = T> + Add<Output = T> + Abs> Point2
 
     pub fn manhattan_dist(self, city: Point2d<T>) -> T {
         let diff = city - self;
-        diff.x.abs() + diff.y.abs()
+        diff.manhattan_len()
+    }
+
+    pub fn manhattan_len(&self) -> T {
+        self.x.abs() + self.y.abs()
     }
 }
 
