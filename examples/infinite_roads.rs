@@ -20,11 +20,28 @@ use vec2::{Bounds, Line, Num, Point2d};
 mod tracing_helper;
 use tracing_helper::*;
 
+/// How many points are in a chunk if the
+/// average is 1 point. Input is a value picked
+/// from a uniform distribution in 0..1
+fn poisson_1(val: f32) -> u8 {
+    match val {
+        0.0..0.3679 => 0,
+        0.3670..0.7358 => 1,
+        0.7358..0.9197 => 2,
+        0.9197..0.981 => 3,
+        0.981..0.9963 => 4,
+        0.9963..0.9994 => 5,
+        0.9994..0.9999 => 6,
+        0.9999..1.0 => 7,
+        _ => panic!("{val} is not in range 0..1"),
+    }
+}
+
 #[derive(Default)]
 struct Cities;
 #[derive(PartialEq, Debug, Clone, Default)]
 struct CitiesChunk {
-    points: [City; 3],
+    points: ArrayVec<City, 7>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -49,16 +66,18 @@ impl Chunk for CitiesChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         Self {
-            points: generate_points::<1, Self, 3>(index).map(|center| {
-                let mut rng = rng_for_point::<0, _>(center);
-                City {
-                    center,
-                    size: { (100..500).sample_single(&mut rng) },
-                    name: (0..(3..12).sample_single(&mut rng))
-                        .map(|_| ('a'..='z').sample_single(&mut rng))
-                        .collect(),
-                }
-            }),
+            points: generate_points::<1, Self>(index)
+                .map(|center| {
+                    let mut rng = rng_for_point::<0, _>(center);
+                    City {
+                        center,
+                        size: { (100..500).sample_single(&mut rng) },
+                        name: (0..(3..12).sample_single(&mut rng))
+                            .map(|_| ('a'..='z').sample_single(&mut rng))
+                            .collect(),
+                    }
+                })
+                .collect(),
         }
     }
 }
@@ -70,7 +89,7 @@ struct ReducedCities {
 
 #[derive(PartialEq, Debug, Clone, Default)]
 struct ReducedCitiesChunk {
-    points: ArrayVec<City, 3>,
+    points: ArrayVec<City, 7>,
 }
 
 impl Layer for ReducedCities {
@@ -120,7 +139,7 @@ impl Chunk for ReducedCitiesChunk {
 struct Locations;
 #[derive(PartialEq, Debug, Clone, Default)]
 struct LocationsChunk {
-    points: [Point2d; 3],
+    points: ArrayVec<Point2d, 7>,
 }
 
 impl Layer for Locations {
@@ -137,18 +156,19 @@ impl Chunk for LocationsChunk {
 
     fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
         LocationsChunk {
-            points: generate_points::<0, Self, 3>(index),
+            points: generate_points::<0, Self>(index).collect(),
         }
     }
 }
 
-fn generate_points<const SALT: u64, C: Chunk + 'static, const N: usize>(
+fn generate_points<const SALT: u64, C: Chunk + 'static>(
     index: GridPoint<C>,
-) -> [Point2d; N] {
+) -> impl Iterator<Item = Point2d> {
     let chunk_bounds = C::bounds(index);
     trace!(?chunk_bounds);
     let mut rng = rng_for_point::<SALT, _>(index);
-    std::array::from_fn(|_| chunk_bounds.sample(&mut rng))
+    let n = poisson_1(rng.gen_range(0.0..=1.0)).into();
+    std::iter::from_fn(move || Some(chunk_bounds.sample(&mut rng))).take(n)
 }
 
 fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
