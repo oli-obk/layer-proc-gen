@@ -98,3 +98,6 @@ pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
     }
     SmallRng::from_seed(seed)
 }
+
+mod reduced_points;
+pub use reduced_points::*;

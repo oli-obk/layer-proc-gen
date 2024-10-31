@@ -1,6 +1,8 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
-use generic_layers::{rng_for_point, UniformPointLayer};
+use generic_layers::{
+    rng_for_point, ReducedUniformPointChunk, ReducedUniformPointLayer, Reducible,
+};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
@@ -40,12 +42,6 @@ impl From<Point2d> for City {
     }
 }
 
-trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
-    /// The radius around the thing to be kept free from other things.
-    fn radius(&self) -> i64;
-    fn position(&self) -> Point2d;
-}
-
 impl Reducible for City {
     fn radius(&self) -> i64 {
         self.size
@@ -72,81 +68,6 @@ impl Reducible for Intersection {
 
     fn position(&self) -> Point2d {
         self.0
-    }
-}
-
-/// Removes locations that are too close to others
-struct ReducedUniformPointLayer<P: Reducible, const SIZE: u8, const SALT: u64> {
-    points: LayerDependency<UniformPointLayer<P, SIZE, SALT>>,
-}
-
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Default
-    for ReducedUniformPointLayer<P, SIZE, SALT>
-{
-    fn default() -> Self {
-        Self {
-            points: Layer::new(),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-struct ReducedUniformPointChunk<P, const SIZE: u8, const SALT: u64> {
-    points: ArrayVec<P, 7>,
-}
-
-impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P, SIZE, SALT> {
-    fn default() -> Self {
-        Self {
-            points: Default::default(),
-        }
-    }
-}
-
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
-    for ReducedUniformPointLayer<P, SIZE, SALT>
-{
-    type Chunk = ReducedUniformPointChunk<P, SIZE, SALT>;
-    type Store<T> = Arc<T>;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.points.ensure_loaded_in_bounds(chunk_bounds);
-    }
-}
-
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
-    for ReducedUniformPointChunk<P, SIZE, SALT>
-{
-    type Layer = ReducedUniformPointLayer<P, SIZE, SALT>;
-    type Store = Self;
-    const SIZE: Point2d<u8> = Point2d::splat(SIZE);
-
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
-        let mut points = ArrayVec::new();
-        'points: for p in layer
-            .points
-            .get_or_compute(index.into_same_chunk_size())
-            .points
-        {
-            for other in layer.points.get_range(Bounds {
-                min: p.position(),
-                max: p.position() + Point2d::splat(p.radius()),
-            }) {
-                for other in other.points {
-                    if other == p {
-                        continue;
-                    }
-
-                    if other.position().manhattan_dist(p.position()) < p.radius() + other.radius()
-                        && p.radius() < other.radius()
-                    {
-                        continue 'points;
-                    }
-                }
-            }
-            points.push(p);
-        }
-        ReducedUniformPointChunk { points }
     }
 }
 
@@ -505,8 +426,7 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let points = UniformPointLayer::new();
-    let cities = ReducedUniformPointLayer { points }.into_dep();
+    let cities = ReducedUniformPointLayer::new();
     let locations = ReducedLocations {
         raw_locations: Layer::new(),
         cities: cities.clone(),
