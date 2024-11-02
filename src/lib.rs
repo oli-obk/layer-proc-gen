@@ -46,7 +46,6 @@ pub trait Layer: Sized {
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
-/// The Padding is in game coordinates.
 pub struct LayerDependency<L: Layer> {
     layer: Store<L>,
 }
