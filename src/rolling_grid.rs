@@ -1,6 +1,6 @@
 use crate::{
     vec2::{Abs, Num, Point2d},
-    Chunk, Layer,
+    Chunk,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -25,10 +25,10 @@ impl<C: Chunk> Default for RollingGrid<C> {
         Self {
             grid: std::iter::repeat_with(|| {
                 std::iter::repeat_with(Default::default)
-                    .take(<C::Layer as Layer>::GRID_OVERLAP.into())
+                    .take(C::GRID_OVERLAP.into())
                     .collect()
             })
-            .take((1 << <C::Layer as Layer>::GRID_SIZE.x) << <C::Layer as Layer>::GRID_SIZE.y)
+            .take((1 << C::GRID_SIZE.x) << C::GRID_SIZE.y)
             .collect(),
         }
     }
@@ -250,19 +250,19 @@ impl<C: Chunk> RollingGrid<C> {
     }
 
     const fn index_of_point(point: GridPoint<C>) -> usize {
-        const { assert!((<C::Layer as Layer>::GRID_SIZE.x as u32) < usize::BITS) }
-        const { assert!((<C::Layer as Layer>::GRID_SIZE.y as u32) < usize::BITS) }
+        const { assert!((C::GRID_SIZE.x as u32) < usize::BITS) }
+        const { assert!((C::GRID_SIZE.y as u32) < usize::BITS) }
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked above that remainder op will alway fit in usize"
         )]
-        let x = point.x.0.rem_euclid(1 << <C::Layer as Layer>::GRID_SIZE.x) as usize;
+        let x = point.x.0.rem_euclid(1 << C::GRID_SIZE.x) as usize;
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked above that remainder op will alway fit in usize"
         )]
-        let y = point.y.0.rem_euclid(1 << <C::Layer as Layer>::GRID_SIZE.y) as usize;
-        x + (y << <C::Layer as Layer>::GRID_SIZE.x)
+        let y = point.y.0.rem_euclid(1 << C::GRID_SIZE.y) as usize;
+        x + (y << C::GRID_SIZE.x)
     }
 
     #[track_caller]

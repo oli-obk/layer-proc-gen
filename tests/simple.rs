@@ -47,10 +47,6 @@ impl Layer for Player {
     type Chunk = PlayerChunk;
     type Store<T> = T;
 
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
-
-    const GRID_OVERLAP: u8 = 1;
-
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
     }
@@ -59,6 +55,10 @@ impl Layer for Player {
 impl Chunk for PlayerChunk {
     type Layer = Player;
     type Store = Self;
+
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
+
+    const GRID_OVERLAP: u8 = 1;
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
@@ -88,10 +88,6 @@ impl Layer for Map {
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
     }
-
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
-
-    const GRID_OVERLAP: u8 = 1;
 }
 
 impl Chunk for MapChunk {
@@ -99,6 +95,10 @@ impl Chunk for MapChunk {
     type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
+
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
+
+    const GRID_OVERLAP: u8 = 1;
 
     fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
         MapChunk

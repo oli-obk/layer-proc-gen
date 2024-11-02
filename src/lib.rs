@@ -22,14 +22,6 @@ pub trait Layer: Default {
     /// they can get stored directly without the `Arc` indirection.
     type Store<T>: Borrow<T> + From<T>;
 
-    /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
-    /// This is the area that should stay in memory at all times as it will get requested a lot.
-    const GRID_SIZE: Point2d<u8> = Point2d::splat(5);
-    /// Internal `RollingGrid` overlap before the system drops old chunks. Basically scales the grid width/height by
-    /// this number to allow moving across the grid width/height boundaries completely transparently.
-    /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
-    const GRID_OVERLAP: u8 = 3;
-
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
@@ -122,6 +114,14 @@ impl<C: Chunk> LayerDependency<C> {
 
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.
 pub trait Chunk: Sized + 'static {
+    /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
+    /// This is the area that should stay in memory at all times as it will get requested a lot.
+    const GRID_SIZE: Point2d<u8> = Point2d::splat(5);
+    /// Internal `RollingGrid` overlap before the system drops old chunks. Basically scales the grid width/height by
+    /// this number to allow moving across the grid width/height boundaries completely transparently.
+    /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
+    const GRID_OVERLAP: u8 = 3;
+
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer<Chunk = Self>;
 
