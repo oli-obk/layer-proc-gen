@@ -19,12 +19,6 @@ pub trait Layer: Default {
 
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
-
-    fn into_dep(self) -> LayerDependency<Self::Chunk> {
-        LayerDependency {
-            layer: Store::<Self::Chunk>::from((RollingGrid::default(), self)),
-        }
-    }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
@@ -36,6 +30,14 @@ impl<C: Chunk> Default for LayerDependency<C> {
     fn default() -> Self {
         Self {
             layer: Store::<C>::from(Default::default()),
+        }
+    }
+}
+
+impl<L: Layer> From<L> for LayerDependency<L::Chunk> {
+    fn from(value: L) -> Self {
+        LayerDependency {
+            layer: Store::<L::Chunk>::from((RollingGrid::default(), value)),
         }
     }
 }

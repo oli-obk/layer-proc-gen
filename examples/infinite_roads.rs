@@ -341,8 +341,8 @@ impl Player {
         trees: LayerDependency<ReducedLocationsChunk>,
     ) -> Self {
         Self {
-            roads: roads.into_dep(),
-            highways: highways.into_dep(),
+            roads: roads.into(),
+            highways: highways.into(),
             trees,
             max_zoom_in: NonZeroU8::new(5).unwrap(),
             max_zoom_out: NonZeroU8::new(10).unwrap(),
@@ -457,12 +457,11 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = ReducedUniformPointLayer::default().into_dep();
-    let locations = ReducedLocations {
+    let cities = LayerDependency::from(ReducedUniformPointLayer::default());
+    let locations = LayerDependency::from(ReducedLocations {
         raw_locations: Default::default(),
         cities: cities.clone(),
-    }
-    .into_dep();
+    });
     let roads = Roads {
         locations: locations.clone(),
     };
