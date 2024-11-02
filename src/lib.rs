@@ -34,24 +34,24 @@ pub trait Layer: Default {
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
     fn into_dep(self) -> LayerDependency<Self::Chunk> {
-        LayerDependency::from(Store::<Self>::from((RollingGrid::default(), self)))
+        LayerDependency::from(Store::<Self::Chunk>::from((RollingGrid::default(), self)))
     }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<C: Chunk> {
-    layer: Store<C::Layer>,
+    layer: Store<C>,
 }
 
 impl<C: Chunk> Default for LayerDependency<C> {
     fn default() -> Self {
-        LayerDependency::from(Store::<C::Layer>::from(Default::default()))
+        LayerDependency::from(Store::<C>::from(Default::default()))
     }
 }
 
 impl<C: Chunk> Clone for LayerDependency<C>
 where
-    Store<C::Layer>: Clone,
+    Store<C>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -61,9 +61,9 @@ where
 }
 
 #[expect(type_alias_bounds)]
-type Store<L: Layer> = L::Store<Tuple<L>>;
+type Store<C: Chunk> = <C::Layer as Layer>::Store<Tuple<C>>;
 #[expect(type_alias_bounds)]
-type Tuple<L: Layer> = (RollingGrid<L::Chunk>, L);
+type Tuple<C: Chunk> = (RollingGrid<C>, C::Layer);
 
 impl<C: Chunk> LayerDependency<C> {
     /// Load a single chunks' dependencies.
@@ -115,7 +115,7 @@ impl<C: Chunk> LayerDependency<C> {
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
 
-    fn from(layer: Store<C::Layer>) -> Self {
+    fn from(layer: Store<C>) -> Self {
         Self { layer }
     }
 }
