@@ -17,11 +17,6 @@ pub trait Layer: Default {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
     type Chunk: Chunk<Layer = Self>;
 
-    /// Data structure that stores the layer. Usually `Arc<Self>`,
-    /// but some layers are only used to simplify another layer, so
-    /// they can get stored directly without the `Arc` indirection.
-    type Store<T>: Borrow<T> + From<T>;
-
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
@@ -53,7 +48,7 @@ where
 }
 
 #[expect(type_alias_bounds)]
-type Store<C: Chunk> = <C::Layer as Layer>::Store<Tuple<C>>;
+type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
 type Tuple<C: Chunk> = (RollingGrid<C>, C::Layer);
 
@@ -121,6 +116,11 @@ pub trait Chunk: Sized + 'static {
     /// this number to allow moving across the grid width/height boundaries completely transparently.
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
     const GRID_OVERLAP: u8 = 3;
+
+    /// Data structure that stores the layer. Usually `Arc<Self>`,
+    /// but some layers are only used to simplify another layer, so
+    /// they can get stored directly without the `Arc` indirection.
+    type LayerStore<T>: Borrow<T> + From<T>;
 
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
     type Layer: Layer<Chunk = Self>;

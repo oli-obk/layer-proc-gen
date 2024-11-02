@@ -48,7 +48,6 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
     for ReducedUniformPointLayer<P, SIZE, SALT>
 {
     type Chunk = ReducedUniformPointChunk<P, SIZE, SALT>;
-    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.points.ensure_loaded_in_bounds(chunk_bounds);
@@ -58,6 +57,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
     for ReducedUniformPointChunk<P, SIZE, SALT>
 {
+    type LayerStore<T> = Arc<T>;
     type Layer = ReducedUniformPointLayer<P, SIZE, SALT>;
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);

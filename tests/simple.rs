@@ -15,12 +15,12 @@ struct TheChunk(usize);
 
 impl Layer for TheLayer {
     type Chunk = TheChunk;
-    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for TheChunk {
+    type LayerStore<T> = Arc<T>;
     type Layer = TheLayer;
     type Store = Self;
 
@@ -45,7 +45,6 @@ struct PlayerChunk;
 
 impl Layer for Player {
     type Chunk = PlayerChunk;
-    type Store<T> = T;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
@@ -53,6 +52,7 @@ impl Layer for Player {
 }
 
 impl Chunk for PlayerChunk {
+    type LayerStore<T> = T;
     type Layer = Player;
     type Store = Self;
 
@@ -83,7 +83,6 @@ struct MapChunk;
 
 impl Layer for Map {
     type Chunk = MapChunk;
-    type Store<T> = T;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
@@ -91,6 +90,7 @@ impl Layer for Map {
 }
 
 impl Chunk for MapChunk {
+    type LayerStore<T> = T;
     type Layer = Map;
     type Store = Self;
 

@@ -53,7 +53,6 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
     for UniformPointLayer<P, SIZE, SALT>
 {
     type Chunk = UniformPointChunk<P, SIZE, SALT>;
-    type Store<T> = T;
 
     fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
@@ -61,6 +60,7 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
     for UniformPointChunk<P, SIZE, SALT>
 {
+    type LayerStore<T> = T;
     type Layer = UniformPointLayer<P, SIZE, SALT>;
     type Store = Self;
 

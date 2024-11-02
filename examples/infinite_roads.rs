@@ -86,7 +86,6 @@ struct ReducedLocationsChunk {
 
 impl Layer for ReducedLocations {
     type Chunk = ReducedLocationsChunk;
-    type Store<T> = Arc<T>;
 
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
         self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
@@ -95,6 +94,7 @@ impl Layer for ReducedLocations {
 }
 
 impl Chunk for ReducedLocationsChunk {
+    type LayerStore<T> = Arc<T>;
     type Layer = ReducedLocations;
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
@@ -140,7 +140,6 @@ struct RoadsChunk {
 
 impl Layer for Roads {
     type Chunk = RoadsChunk;
-    type Store<T> = T;
 
     #[track_caller]
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
@@ -149,6 +148,7 @@ impl Layer for Roads {
 }
 
 impl Chunk for RoadsChunk {
+    type LayerStore<T> = T;
     type Layer = Roads;
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = Point2d::splat(6);
@@ -242,7 +242,6 @@ struct HighwaysChunk {
 
 impl Layer for Highways {
     type Chunk = HighwaysChunk;
-    type Store<T> = T;
 
     #[track_caller]
     fn ensure_all_deps(&self, chunk_bounds: Bounds) {
@@ -251,6 +250,7 @@ impl Layer for Highways {
 }
 
 impl Chunk for HighwaysChunk {
+    type LayerStore<T> = T;
     type Layer = Highways;
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City, 11, 1>::SIZE;
