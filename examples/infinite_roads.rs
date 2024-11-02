@@ -74,8 +74,8 @@ impl Reducible for Intersection {
 /// Removes locations that are too close to others
 #[derive(Default)]
 struct ReducedLocations {
-    raw_locations: LayerDependency<ReducedUniformPointLayer<Intersection, 6, 0>>,
-    cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
+    raw_locations: LayerDependency<ReducedUniformPointChunk<Intersection, 6, 0>>,
+    cities: LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
 }
 
 #[derive(PartialEq, Debug, Clone, Default)]
@@ -130,7 +130,7 @@ impl Chunk for ReducedLocationsChunk {
 
 #[derive(Default)]
 struct Roads {
-    locations: LayerDependency<ReducedLocations>,
+    locations: LayerDependency<ReducedLocationsChunk>,
 }
 
 #[derive(PartialEq, Debug, Default)]
@@ -221,8 +221,8 @@ fn gen_roads<T: Clone, U>(
 
 #[derive(Default)]
 struct Highways {
-    cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
-    locations: LayerDependency<ReducedLocations>,
+    cities: LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
+    locations: LayerDependency<ReducedLocationsChunk>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -317,9 +317,9 @@ impl Chunk for HighwaysChunk {
 }
 
 struct Player {
-    roads: LayerDependency<Roads>,
-    trees: LayerDependency<ReducedLocations>,
-    highways: LayerDependency<Highways>,
+    roads: LayerDependency<RoadsChunk>,
+    trees: LayerDependency<ReducedLocationsChunk>,
+    highways: LayerDependency<HighwaysChunk>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
@@ -335,7 +335,11 @@ struct Tree {
 }
 
 impl Player {
-    pub fn new(roads: Roads, highways: Highways, trees: LayerDependency<ReducedLocations>) -> Self {
+    pub fn new(
+        roads: Roads,
+        highways: Highways,
+        trees: LayerDependency<ReducedLocationsChunk>,
+    ) -> Self {
         Self {
             roads: roads.into_dep(),
             highways: highways.into_dep(),

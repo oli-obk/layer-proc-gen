@@ -33,25 +33,25 @@ pub trait Layer: Default {
     /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
-    fn into_dep(self) -> LayerDependency<Self> {
+    fn into_dep(self) -> LayerDependency<Self::Chunk> {
         LayerDependency::from(Store::<Self>::from((RollingGrid::default(), self)))
     }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
-pub struct LayerDependency<L: Layer> {
-    layer: Store<L>,
+pub struct LayerDependency<C: Chunk> {
+    layer: Store<C::Layer>,
 }
 
-impl<L: Layer> Default for LayerDependency<L> {
+impl<C: Chunk> Default for LayerDependency<C> {
     fn default() -> Self {
-        LayerDependency::from(Store::<L>::from(Default::default()))
+        LayerDependency::from(Store::<C::Layer>::from(Default::default()))
     }
 }
 
-impl<L: Layer> Clone for LayerDependency<L>
+impl<C: Chunk> Clone for LayerDependency<C>
 where
-    Store<L>: Clone,
+    Store<C::Layer>: Clone,
 {
     fn clone(&self) -> Self {
         Self {
@@ -64,11 +64,11 @@ where
 type Store<L: Layer> = L::Store<Tuple<L>>;
 type Tuple<L> = (RollingGrid<L>, L);
 
-impl<L: Layer> LayerDependency<L> {
+impl<C: Chunk> LayerDependency<C> {
     /// Load a single chunks' dependencies.
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
-    fn ensure_chunk_providers(&self, index: GridPoint<L::Chunk>) {
-        let chunk_bounds = L::Chunk::bounds(index);
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<C>()))]
+    fn ensure_chunk_providers(&self, index: GridPoint<C>) {
+        let chunk_bounds = C::bounds(index);
         self.layer.borrow().1.ensure_all_deps(chunk_bounds);
     }
 
@@ -76,9 +76,9 @@ impl<L: Layer> LayerDependency<L> {
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
     #[track_caller]
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<L>()))]
+    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<C>()))]
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
-        let indices = L::Chunk::bounds_to_grid(chunk_bounds);
+        let indices = C::bounds_to_grid(chunk_bounds);
         trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
         let center = indices.center();
@@ -91,7 +91,7 @@ impl<L: Layer> LayerDependency<L> {
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get_or_compute(&self, index: GridPoint<L::Chunk>) -> <L::Chunk as Chunk>::Store {
+    pub fn get_or_compute(&self, index: GridPoint<C>) -> C::Store {
         self.layer
             .borrow()
             .0
@@ -99,11 +99,8 @@ impl<L: Layer> LayerDependency<L> {
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
-    pub fn get_range(
-        &self,
-        range: Bounds,
-    ) -> impl Iterator<Item = <L::Chunk as Chunk>::Store> + '_ {
-        let range = L::Chunk::bounds_to_grid(range);
+    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = C::Store> + '_ {
+        let range = C::bounds_to_grid(range);
         self.get_grid_range(range)
     }
 
@@ -111,13 +108,13 @@ impl<L: Layer> LayerDependency<L> {
     /// Chunks will be generated on the fly.
     pub fn get_grid_range(
         &self,
-        range: Bounds<GridIndex<L::Chunk>>,
-    ) -> impl Iterator<Item = <L::Chunk as Chunk>::Store> + '_ {
+        range: Bounds<GridIndex<C>>,
+    ) -> impl Iterator<Item = C::Store> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
 
-    fn from(layer: Store<L>) -> Self {
+    fn from(layer: Store<C::Layer>) -> Self {
         Self { layer }
     }
 }

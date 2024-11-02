@@ -8,7 +8,7 @@ use crate::{
     Chunk, Layer, LayerDependency,
 };
 
-use super::UniformPointLayer;
+use super::UniformPointChunk;
 
 pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     /// The radius around the thing to be kept free from other things.
@@ -18,7 +18,7 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
 
 /// Removes locations that are too close to others
 pub struct ReducedUniformPointLayer<P: Reducible, const SIZE: u8, const SALT: u64> {
-    points: LayerDependency<UniformPointLayer<P, SIZE, SALT>>,
+    points: LayerDependency<UniformPointChunk<P, SIZE, SALT>>,
 }
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Default

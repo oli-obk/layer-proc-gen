@@ -31,11 +31,11 @@ impl Chunk for TheChunk {
 
 #[derive(Default)]
 struct Player {
-    the_layer: LayerDependency<TheLayer>,
+    the_layer: LayerDependency<TheChunk>,
 }
 
 impl Player {
-    pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
+    pub fn new(the_layer: LayerDependency<TheChunk>) -> Self {
         Self { the_layer }
     }
 }
@@ -69,11 +69,11 @@ impl Chunk for PlayerChunk {
 
 #[derive(Default)]
 struct Map {
-    the_layer: LayerDependency<TheLayer>,
+    the_layer: LayerDependency<TheChunk>,
 }
 
 impl Map {
-    pub fn new(the_layer: LayerDependency<TheLayer>) -> Self {
+    pub fn new(the_layer: LayerDependency<TheChunk>) -> Self {
         Self { the_layer }
     }
 }
