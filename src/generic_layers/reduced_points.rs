@@ -26,7 +26,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Default
 {
     fn default() -> Self {
         Self {
-            points: Layer::new(),
+            points: Default::default(),
         }
     }
 }

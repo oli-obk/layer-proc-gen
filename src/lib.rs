@@ -13,7 +13,7 @@ use vec2::{Bounds, Point2d};
 pub mod generic_layers;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
-pub trait Layer: Sized {
+pub trait Layer: Default {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
     type Chunk: Chunk<Layer = Self>;
 
@@ -36,18 +36,17 @@ pub trait Layer: Sized {
     fn into_dep(self) -> LayerDependency<Self> {
         LayerDependency::from(Store::<Self>::from((RollingGrid::default(), self)))
     }
-
-    fn new() -> LayerDependency<Self>
-    where
-        Self: Default,
-    {
-        LayerDependency::from(Store::<Self>::from(Default::default()))
-    }
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<L: Layer> {
     layer: Store<L>,
+}
+
+impl<L: Layer> Default for LayerDependency<L> {
+    fn default() -> Self {
+        LayerDependency::from(Store::<L>::from(Default::default()))
+    }
 }
 
 impl<L: Layer> Clone for LayerDependency<L>

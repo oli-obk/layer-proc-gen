@@ -29,6 +29,7 @@ impl Chunk for TheChunk {
     }
 }
 
+#[derive(Default)]
 struct Player {
     the_layer: LayerDependency<TheLayer>,
 }
@@ -66,6 +67,7 @@ impl Chunk for PlayerChunk {
     }
 }
 
+#[derive(Default)]
 struct Map {
     the_layer: LayerDependency<TheLayer>,
 }
@@ -122,7 +124,7 @@ fn double_assign_chunk() {
 #[test]
 fn create_player() {
     init_tracing();
-    let the_layer = TheLayer::new();
+    let the_layer = TheLayer::default().into_dep();
     let player = Player::new(the_layer.clone()).into_dep();
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));

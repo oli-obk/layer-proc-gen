@@ -72,6 +72,7 @@ impl Reducible for Intersection {
 }
 
 /// Removes locations that are too close to others
+#[derive(Default)]
 struct ReducedLocations {
     raw_locations: LayerDependency<ReducedUniformPointLayer<Intersection, 6, 0>>,
     cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
@@ -127,6 +128,7 @@ impl Chunk for ReducedLocationsChunk {
     }
 }
 
+#[derive(Default)]
 struct Roads {
     locations: LayerDependency<ReducedLocations>,
 }
@@ -217,6 +219,7 @@ fn gen_roads<T: Clone, U>(
     roads
 }
 
+#[derive(Default)]
 struct Highways {
     cities: LayerDependency<ReducedUniformPointLayer<City, 11, 1>>,
     locations: LayerDependency<ReducedLocations>,
@@ -450,9 +453,9 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = ReducedUniformPointLayer::new();
+    let cities = ReducedUniformPointLayer::default().into_dep();
     let locations = ReducedLocations {
-        raw_locations: Layer::new(),
+        raw_locations: Default::default(),
         cities: cities.clone(),
     }
     .into_dep();
