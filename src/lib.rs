@@ -62,7 +62,8 @@ where
 
 #[expect(type_alias_bounds)]
 type Store<L: Layer> = L::Store<Tuple<L>>;
-type Tuple<L> = (RollingGrid<L>, L);
+#[expect(type_alias_bounds)]
+type Tuple<L: Layer> = (RollingGrid<L::Chunk>, L);
 
 impl<C: Chunk> LayerDependency<C> {
     /// Load a single chunks' dependencies.
@@ -151,7 +152,7 @@ pub trait Chunk: Sized + 'static {
 
     /// Get the grid the position is in
     fn pos_to_grid(point: Point2d) -> GridPoint<Self> {
-        RollingGrid::<Self::Layer>::pos_to_grid_pos(point)
+        RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 }
 

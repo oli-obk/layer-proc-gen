@@ -13,22 +13,22 @@ pub type GridPoint<C> = crate::vec2::Point2d<GridIndex<C>>;
 
 // TODO: avoid the box when generic const exprs allow for it
 // The Layer that contains it will already get put into an `Arc`
-pub(crate) struct RollingGrid<L: Layer> {
+pub(crate) struct RollingGrid<C: Chunk> {
     /// The inner slice contains to `L::OVERLAP` entries,
     /// some of which are `None` if they have nevef been used
     /// so far.
-    grid: Box<[Box<[ActiveCell<L>]>]>,
+    grid: Box<[Box<[ActiveCell<C>]>]>,
 }
 
-impl<L: Layer> Default for RollingGrid<L> {
+impl<C: Chunk> Default for RollingGrid<C> {
     fn default() -> Self {
         Self {
             grid: std::iter::repeat_with(|| {
                 std::iter::repeat_with(Default::default)
-                    .take(L::GRID_OVERLAP.into())
+                    .take(<C::Layer as Layer>::GRID_OVERLAP.into())
                     .collect()
             })
-            .take((1 << L::GRID_SIZE.x) << L::GRID_SIZE.y)
+            .take((1 << <C::Layer as Layer>::GRID_SIZE.x) << <C::Layer as Layer>::GRID_SIZE.y)
             .collect(),
         }
     }
@@ -197,13 +197,13 @@ impl<C: Chunk> GridPoint<C> {
     }
 }
 
-struct ActiveCell<L: Layer> {
-    pos: Cell<GridPoint<L::Chunk>>,
-    chunk: RefCell<<L::Chunk as Chunk>::Store>,
+struct ActiveCell<C: Chunk> {
+    pos: Cell<GridPoint<C>>,
+    chunk: RefCell<C::Store>,
     last_access: Cell<SystemTime>,
 }
 
-impl<L: Layer> Default for ActiveCell<L> {
+impl<C: Chunk> Default for ActiveCell<C> {
     fn default() -> Self {
         Self {
             pos: GridPoint::splat(GridIndex::from_raw(i64::MIN)).into(),
@@ -213,16 +213,12 @@ impl<L: Layer> Default for ActiveCell<L> {
     }
 }
 
-impl<L: Layer> RollingGrid<L> {
+impl<C: Chunk> RollingGrid<C> {
     #[track_caller]
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    pub fn get_or_compute(
-        &self,
-        pos: GridPoint<L::Chunk>,
-        layer: &L,
-    ) -> <L::Chunk as Chunk>::Store {
+    pub fn get_or_compute(&self, pos: GridPoint<C>, layer: &C::Layer) -> C::Store {
         let now = SystemTime::now();
         // Find existing entry and bump its last use, or
         // find an empty entry, or
@@ -239,38 +235,38 @@ impl<L: Layer> RollingGrid<L> {
             }
             free = p;
         }
-        let chunk = L::Chunk::compute(layer, pos);
+        let chunk = C::compute(layer, pos);
         free.pos.set(pos);
         free.chunk.replace(chunk.clone());
         free.last_access.set(now);
         chunk
     }
 
-    pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<L::Chunk> {
+    pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<C> {
         GridPoint {
-            x: GridIndex::from_raw(pos.x >> L::Chunk::SIZE.x),
-            y: GridIndex::from_raw(pos.y >> L::Chunk::SIZE.y),
+            x: GridIndex::from_raw(pos.x >> C::SIZE.x),
+            y: GridIndex::from_raw(pos.y >> C::SIZE.y),
         }
     }
 
-    const fn index_of_point(point: GridPoint<L::Chunk>) -> usize {
-        const { assert!((L::GRID_SIZE.x as u32) < usize::BITS) }
-        const { assert!((L::GRID_SIZE.y as u32) < usize::BITS) }
+    const fn index_of_point(point: GridPoint<C>) -> usize {
+        const { assert!((<C::Layer as Layer>::GRID_SIZE.x as u32) < usize::BITS) }
+        const { assert!((<C::Layer as Layer>::GRID_SIZE.y as u32) < usize::BITS) }
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked above that remainder op will alway fit in usize"
         )]
-        let x = point.x.0.rem_euclid(1 << L::GRID_SIZE.x) as usize;
+        let x = point.x.0.rem_euclid(1 << <C::Layer as Layer>::GRID_SIZE.x) as usize;
         #[expect(
             clippy::cast_possible_truncation,
             reason = "checked above that remainder op will alway fit in usize"
         )]
-        let y = point.y.0.rem_euclid(1 << L::GRID_SIZE.y) as usize;
-        x + (y << L::GRID_SIZE.x)
+        let y = point.y.0.rem_euclid(1 << <C::Layer as Layer>::GRID_SIZE.y) as usize;
+        x + (y << <C::Layer as Layer>::GRID_SIZE.x)
     }
 
     #[track_caller]
-    fn access(&self, pos: GridPoint<L::Chunk>) -> &[ActiveCell<L>] {
+    fn access(&self, pos: GridPoint<C>) -> &[ActiveCell<C>] {
         self.grid
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
