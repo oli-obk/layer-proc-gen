@@ -21,7 +21,9 @@ pub trait Layer: Default {
     fn ensure_all_deps(&self, chunk_bounds: Bounds);
 
     fn into_dep(self) -> LayerDependency<Self::Chunk> {
-        LayerDependency::from(Store::<Self::Chunk>::from((RollingGrid::default(), self)))
+        LayerDependency {
+            layer: Store::<Self::Chunk>::from((RollingGrid::default(), self)),
+        }
     }
 }
 
@@ -32,7 +34,9 @@ pub struct LayerDependency<C: Chunk> {
 
 impl<C: Chunk> Default for LayerDependency<C> {
     fn default() -> Self {
-        LayerDependency::from(Store::<C>::from(Default::default()))
+        Self {
+            layer: Store::<C>::from(Default::default()),
+        }
     }
 }
 
@@ -100,10 +104,6 @@ impl<C: Chunk> LayerDependency<C> {
     ) -> impl Iterator<Item = C::Store> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
-    }
-
-    fn from(layer: Store<C>) -> Self {
-        Self { layer }
     }
 }
 
