@@ -16,6 +16,8 @@ pub mod generic_layers;
 pub trait Layer: Default {}
 
 impl Layer for () {}
+impl<T: Chunk> Layer for (LayerDependency<T>,) {}
+impl<T: Chunk, U: Chunk> Layer for (LayerDependency<T>, LayerDependency<U>) {}
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<C: Chunk> {
@@ -144,6 +146,10 @@ pub trait Chunk: Sized + 'static {
     /// Get the grid the position is in
     fn pos_to_grid(point: Point2d) -> GridPoint<Self> {
         RollingGrid::<Self>::pos_to_grid_pos(point)
+    }
+
+    fn default_layer() -> Self::Layer {
+        Default::default()
     }
 }
 

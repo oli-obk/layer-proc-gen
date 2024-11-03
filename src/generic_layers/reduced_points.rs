@@ -5,7 +5,7 @@ use arrayvec::ArrayVec;
 use crate::{
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
-    Chunk, Layer, LayerDependency,
+    Chunk, LayerDependency,
 };
 
 use super::UniformPointChunk;
@@ -16,22 +16,8 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     fn position(&self) -> Point2d;
 }
 
-/// Removes locations that are too close to others
-pub struct ReducedUniformPointLayer<P: Reducible, const SIZE: u8, const SALT: u64> {
-    points: LayerDependency<UniformPointChunk<P, SIZE, SALT>>,
-}
-
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Default
-    for ReducedUniformPointLayer<P, SIZE, SALT>
-{
-    fn default() -> Self {
-        Self {
-            points: Default::default(),
-        }
-    }
-}
-
 #[derive(PartialEq, Debug, Clone)]
+/// Removes locations that are too close to others
 pub struct ReducedUniformPointChunk<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
 }
@@ -44,27 +30,21 @@ impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P,
     }
 }
 
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
-    for ReducedUniformPointLayer<P, SIZE, SALT>
-{
-}
-
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
     for ReducedUniformPointChunk<P, SIZE, SALT>
 {
     type LayerStore<T> = Arc<T>;
-    type Layer = ReducedUniformPointLayer<P, SIZE, SALT>;
+    type Layer = (LayerDependency<UniformPointChunk<P, SIZE, SALT>>,);
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute((raw_points,): &Self::Layer, index: GridPoint<Self>) -> Self {
         let mut points = ArrayVec::new();
-        'points: for p in layer
-            .points
+        'points: for p in raw_points
             .get_or_compute(index.into_same_chunk_size())
             .points
         {
-            for other in layer.points.get_range(Bounds {
+            for other in raw_points.get_range(Bounds {
                 min: p.position(),
                 max: p.position() + Point2d::splat(p.radius()),
             }) {

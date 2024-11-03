@@ -1,8 +1,6 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
-use generic_layers::{
-    rng_for_point, ReducedUniformPointChunk, ReducedUniformPointLayer, Reducible,
-};
+use generic_layers::{rng_for_point, ReducedUniformPointChunk, Reducible};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
@@ -72,37 +70,31 @@ impl Reducible for Intersection {
 }
 
 /// Removes locations that are too close to others
-#[derive(Default)]
-struct ReducedLocations {
-    raw_locations: LayerDependency<ReducedUniformPointChunk<Intersection, 6, 0>>,
-    cities: LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
-}
-
 #[derive(PartialEq, Debug, Clone, Default)]
 struct ReducedLocationsChunk {
     points: ArrayVec<Point2d, 7>,
     trees: ArrayVec<Point2d, 7>,
 }
 
-impl Layer for ReducedLocations {}
-
 impl Chunk for ReducedLocationsChunk {
     type LayerStore<T> = Arc<T>;
-    type Layer = ReducedLocations;
+    type Layer = (
+        LayerDependency<ReducedUniformPointChunk<Intersection, 6, 0>>,
+        LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
+    );
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute((raw_locations, cities): &Self::Layer, index: GridPoint<Self>) -> Self {
         let bounds = Self::bounds(index);
         let center = bounds.center();
-        let points = layer
-            .raw_locations
+        let points = raw_locations
             .get_or_compute(index.into_same_chunk_size())
             .points
             .iter()
             .map(|p| p.0)
             .collect();
-        if layer.cities.get_range(bounds).all(|cities| {
+        if cities.get_range(bounds).all(|cities| {
             cities
                 .points
                 .iter()
@@ -121,28 +113,20 @@ impl Chunk for ReducedLocationsChunk {
     }
 }
 
-#[derive(Default)]
-struct Roads {
-    locations: LayerDependency<ReducedLocationsChunk>,
-}
-
 #[derive(PartialEq, Debug, Default)]
 struct RoadsChunk {
     roads: Vec<Line>,
 }
 
-impl Layer for Roads {}
-
 impl Chunk for RoadsChunk {
     type LayerStore<T> = T;
-    type Layer = Roads;
+    type Layer = (LayerDependency<ReducedLocationsChunk>,);
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
+    fn compute((locations,): &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
-            layer
-                .locations
+            locations
                 .get_grid_range(
                     Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
                 )
@@ -205,12 +189,6 @@ fn gen_roads<T: Clone, U>(
     roads
 }
 
-#[derive(Default)]
-struct Highways {
-    cities: LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
-    locations: LayerDependency<ReducedLocationsChunk>,
-}
-
 #[derive(PartialEq, Debug, Clone)]
 
 struct Highway {
@@ -226,18 +204,18 @@ struct HighwaysChunk {
     roads: Vec<Highway>,
 }
 
-impl Layer for Highways {}
-
 impl Chunk for HighwaysChunk {
     type LayerStore<T> = T;
-    type Layer = Highways;
+    type Layer = (
+        LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
+        LayerDependency<ReducedLocationsChunk>,
+    );
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City, 11, 1>::SIZE;
 
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store {
+    fn compute((cities, locations): &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
-            layer
-                .cities
+            cities
                 .get_grid_range(
                     Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
                 )
@@ -266,8 +244,7 @@ impl Chunk for HighwaysChunk {
                         .to(Chunk::pos_to_grid(start))
                         .iter_all_touched_pixels(|x, y| {
                             let index = Point2d::new(x, y);
-                            closest = layer
-                                .locations
+                            closest = locations
                                 .get_or_compute(index)
                                 .points
                                 .iter()
@@ -315,8 +292,8 @@ struct Tree {
 
 impl Player {
     pub fn new(
-        roads: Roads,
-        highways: Highways,
+        roads: LayerDependency<RoadsChunk>,
+        highways: LayerDependency<HighwaysChunk>,
         trees: LayerDependency<ReducedLocationsChunk>,
     ) -> Self {
         Self {
@@ -436,19 +413,13 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = LayerDependency::from(ReducedUniformPointLayer::default());
-    let locations = LayerDependency::from(ReducedLocations {
-        raw_locations: Default::default(),
-        cities: cities.clone(),
-    });
-    let roads = Roads {
-        locations: locations.clone(),
-    };
-    let highways = Highways {
-        cities: cities.clone(),
-        locations: locations.clone(),
-    };
-    let mut player = Player::new(roads, highways, locations);
+    let cities = LayerDependency::from(ReducedUniformPointChunk::default_layer());
+    let locations = LayerDependency::from((Default::default(), cities.clone()));
+    let mut player = Player::new(
+        (locations.clone(),).into(),
+        (cities.clone(), locations.clone()).into(),
+        locations,
+    );
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
 
