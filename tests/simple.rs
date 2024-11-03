@@ -13,9 +13,7 @@ struct TheLayer;
 #[derive(Clone, Default)]
 struct TheChunk(usize);
 
-impl Layer for TheLayer {
-    type Chunk = TheChunk;
-}
+impl Layer for TheLayer {}
 
 impl Chunk for TheChunk {
     type LayerStore<T> = Arc<T>;
@@ -41,9 +39,7 @@ impl Player {
 #[derive(Clone, Default)]
 struct PlayerChunk;
 
-impl Layer for Player {
-    type Chunk = PlayerChunk;
-}
+impl Layer for Player {}
 
 impl Chunk for PlayerChunk {
     type LayerStore<T> = T;
@@ -76,9 +72,7 @@ impl Map {
 #[derive(Clone, Default)]
 struct MapChunk;
 
-impl Layer for Map {
-    type Chunk = MapChunk;
-}
+impl Layer for Map {}
 
 impl Chunk for MapChunk {
     type LayerStore<T> = T;

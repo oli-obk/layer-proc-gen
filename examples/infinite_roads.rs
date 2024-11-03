@@ -84,9 +84,7 @@ struct ReducedLocationsChunk {
     trees: ArrayVec<Point2d, 7>,
 }
 
-impl Layer for ReducedLocations {
-    type Chunk = ReducedLocationsChunk;
-}
+impl Layer for ReducedLocations {}
 
 impl Chunk for ReducedLocationsChunk {
     type LayerStore<T> = Arc<T>;
@@ -133,9 +131,7 @@ struct RoadsChunk {
     roads: Vec<Line>,
 }
 
-impl Layer for Roads {
-    type Chunk = RoadsChunk;
-}
+impl Layer for Roads {}
 
 impl Chunk for RoadsChunk {
     type LayerStore<T> = T;
@@ -230,9 +226,7 @@ struct HighwaysChunk {
     roads: Vec<Highway>,
 }
 
-impl Layer for Highways {
-    type Chunk = HighwaysChunk;
-}
+impl Layer for Highways {}
 
 impl Chunk for HighwaysChunk {
     type LayerStore<T> = T;

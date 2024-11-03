@@ -13,10 +13,7 @@ use vec2::{Bounds, Point2d};
 pub mod generic_layers;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
-pub trait Layer: Default {
-    /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
-    type Chunk: Chunk;
-}
+pub trait Layer: Default {}
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<C: Chunk> {

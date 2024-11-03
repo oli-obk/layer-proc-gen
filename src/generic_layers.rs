@@ -52,7 +52,6 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointChunk<P, SIZE, 
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
     for UniformPointLayer<P, SIZE, SALT>
 {
-    type Chunk = UniformPointChunk<P, SIZE, SALT>;
 }
 
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk

@@ -47,7 +47,6 @@ impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P,
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
     for ReducedUniformPointLayer<P, SIZE, SALT>
 {
-    type Chunk = ReducedUniformPointChunk<P, SIZE, SALT>;
 }
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
