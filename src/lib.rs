@@ -16,9 +16,6 @@ pub mod generic_layers;
 pub trait Layer: Default {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
     type Chunk: Chunk<Layer = Self>;
-
-    /// Invoke `ensure_loaded_in_bounds` on all your dependencies here.
-    fn ensure_all_deps(&self, chunk_bounds: Bounds);
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.

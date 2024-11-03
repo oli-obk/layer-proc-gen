@@ -48,10 +48,6 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Layer
     for ReducedUniformPointLayer<P, SIZE, SALT>
 {
     type Chunk = ReducedUniformPointChunk<P, SIZE, SALT>;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.points.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk

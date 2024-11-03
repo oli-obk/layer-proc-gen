@@ -15,8 +15,6 @@ struct TheChunk(usize);
 
 impl Layer for TheLayer {
     type Chunk = TheChunk;
-
-    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl Chunk for TheChunk {
@@ -45,10 +43,6 @@ struct PlayerChunk;
 
 impl Layer for Player {
     type Chunk = PlayerChunk;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl Chunk for PlayerChunk {
@@ -62,7 +56,8 @@ impl Chunk for PlayerChunk {
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        for _ in layer.the_layer.get_range(Self::bounds(index)) {}
         PlayerChunk
     }
 }
@@ -83,10 +78,6 @@ struct MapChunk;
 
 impl Layer for Map {
     type Chunk = MapChunk;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.the_layer.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl Chunk for MapChunk {
@@ -100,7 +91,8 @@ impl Chunk for MapChunk {
 
     const GRID_OVERLAP: u8 = 1;
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
+    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+        for _ in layer.the_layer.get_range(Self::bounds(index)) {}
         MapChunk
     }
 }

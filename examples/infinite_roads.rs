@@ -86,11 +86,6 @@ struct ReducedLocationsChunk {
 
 impl Layer for ReducedLocations {
     type Chunk = ReducedLocationsChunk;
-
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.raw_locations.ensure_loaded_in_bounds(chunk_bounds);
-        self.cities.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl Chunk for ReducedLocationsChunk {
@@ -140,11 +135,6 @@ struct RoadsChunk {
 
 impl Layer for Roads {
     type Chunk = RoadsChunk;
-
-    #[track_caller]
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.locations.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl Chunk for RoadsChunk {
@@ -242,11 +232,6 @@ struct HighwaysChunk {
 
 impl Layer for Highways {
     type Chunk = HighwaysChunk;
-
-    #[track_caller]
-    fn ensure_all_deps(&self, chunk_bounds: Bounds) {
-        self.cities.ensure_loaded_in_bounds(chunk_bounds);
-    }
 }
 
 impl Chunk for HighwaysChunk {

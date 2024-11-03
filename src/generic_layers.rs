@@ -7,7 +7,7 @@ use rand::prelude::*;
 
 use crate::{
     rolling_grid::GridPoint,
-    vec2::{Bounds, Num, Point2d},
+    vec2::{Num, Point2d},
     Chunk, Layer,
 };
 
@@ -53,8 +53,6 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
     for UniformPointLayer<P, SIZE, SALT>
 {
     type Chunk = UniformPointChunk<P, SIZE, SALT>;
-
-    fn ensure_all_deps(&self, _chunk_bounds: Bounds) {}
 }
 
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
