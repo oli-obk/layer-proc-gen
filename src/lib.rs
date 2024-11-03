@@ -59,13 +59,6 @@ type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 type Tuple<C: Chunk> = (RollingGrid<C>, C::Layer);
 
 impl<C: Chunk> LayerDependency<C> {
-    /// Load a single chunks' dependencies.
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<C>()))]
-    fn ensure_chunk_providers(&self, index: GridPoint<C>) {
-        let chunk_bounds = C::bounds(index);
-        self.layer.borrow().1.ensure_all_deps(chunk_bounds);
-    }
-
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
