@@ -15,6 +15,8 @@ pub mod generic_layers;
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Default {}
 
+impl Layer for () {}
+
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<C: Chunk> {
     layer: Store<C>,

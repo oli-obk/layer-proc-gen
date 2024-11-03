@@ -1,14 +1,12 @@
 //! Various useful layer/chunk type combinations that you can reuse in many kind of games.
 
-use std::marker::PhantomData;
-
 use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},
-    Chunk, Layer,
+    Chunk,
 };
 
 /// How many points are in a chunk if the
@@ -28,14 +26,6 @@ fn poisson_1(val: f32) -> u8 {
     }
 }
 
-pub struct UniformPointLayer<P, const SIZE: u8, const SALT: u64>(PhantomData<P>);
-
-impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointLayer<P, SIZE, SALT> {
-    fn default() -> Self {
-        Self(PhantomData)
-    }
-}
-
 #[derive(PartialEq, Debug, Clone)]
 pub struct UniformPointChunk<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
@@ -49,16 +39,11 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointChunk<P, SIZE, 
     }
 }
 
-impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Layer
-    for UniformPointLayer<P, SIZE, SALT>
-{
-}
-
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
     for UniformPointChunk<P, SIZE, SALT>
 {
     type LayerStore<T> = T;
-    type Layer = UniformPointLayer<P, SIZE, SALT>;
+    type Layer = ();
     type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);

@@ -7,17 +7,13 @@ use vec2::{Bounds, Point2d};
 mod tracing;
 use tracing::*;
 
-#[derive(Default)]
-struct TheLayer;
 #[expect(dead_code)]
 #[derive(Clone, Default)]
 struct TheChunk(usize);
 
-impl Layer for TheLayer {}
-
 impl Chunk for TheChunk {
     type LayerStore<T> = Arc<T>;
-    type Layer = TheLayer;
+    type Layer = ();
     type Store = Self;
 
     fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
@@ -93,13 +89,13 @@ impl Chunk for MapChunk {
 
 #[test]
 fn create_layer() {
-    let layer = LayerDependency::from(TheLayer::default());
+    let layer = LayerDependency::from(());
     layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
 }
 
 #[test]
 fn double_assign_chunk() {
-    let layer = LayerDependency::from(TheLayer::default());
+    let layer = LayerDependency::from(());
     layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
@@ -110,7 +106,7 @@ fn double_assign_chunk() {
 #[test]
 fn create_player() {
     init_tracing();
-    let the_layer = LayerDependency::from(TheLayer::default());
+    let the_layer = LayerDependency::from(());
     let player = LayerDependency::<PlayerChunk>::from(Player::new(the_layer.clone()));
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
