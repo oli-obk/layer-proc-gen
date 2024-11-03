@@ -15,7 +15,7 @@ pub mod generic_layers;
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Default {
     /// Corresponding `Chunk` type. A `Layer` type must always be paired with exactly one `Chunk` type.
-    type Chunk: Chunk<Layer = Self>;
+    type Chunk: Chunk;
 }
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
@@ -31,10 +31,10 @@ impl<C: Chunk> Default for LayerDependency<C> {
     }
 }
 
-impl<L: Layer> From<L> for LayerDependency<L::Chunk> {
+impl<L: Layer, C: Chunk<Layer = L>> From<L> for LayerDependency<C> {
     fn from(value: L) -> Self {
         LayerDependency {
-            layer: Store::<L::Chunk>::from((RollingGrid::default(), value)),
+            layer: Store::<C>::from((RollingGrid::default(), value)),
         }
     }
 }
@@ -115,7 +115,7 @@ pub trait Chunk: Sized + 'static {
     type LayerStore<T>: Borrow<T> + From<T>;
 
     /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
-    type Layer: Layer<Chunk = Self>;
+    type Layer: Layer;
 
     /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
     /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.

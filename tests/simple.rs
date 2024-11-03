@@ -117,9 +117,9 @@ fn double_assign_chunk() {
 fn create_player() {
     init_tracing();
     let the_layer = LayerDependency::from(TheLayer::default());
-    let player = LayerDependency::from(Player::new(the_layer.clone()));
+    let player = LayerDependency::<PlayerChunk>::from(Player::new(the_layer.clone()));
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
-    let map = LayerDependency::from(Map::new(the_layer));
+    let map = LayerDependency::<MapChunk>::from(Map::new(the_layer));
     map.ensure_loaded_in_bounds(Bounds::point(player_pos));
 }
