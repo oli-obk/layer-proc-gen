@@ -48,7 +48,7 @@ impl<C: Chunk> Default for LayerDependency<C> {
     }
 }
 
-impl<L: Layer, C: Chunk<Layer = L>> From<L> for LayerDependency<C> {
+impl<L: Layer, C: Chunk<Dependencies = L>> From<L> for LayerDependency<C> {
     fn from(value: L) -> Self {
         LayerDependency {
             layer: Store::<C>::from((RollingGrid::default(), value)),
@@ -70,7 +70,7 @@ where
 #[expect(type_alias_bounds)]
 type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
-type Tuple<C: Chunk> = (RollingGrid<C>, C::Layer);
+type Tuple<C: Chunk> = (RollingGrid<C>, C::Dependencies);
 
 impl<C: Chunk> LayerDependency<C> {
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -131,8 +131,8 @@ pub trait Chunk: Sized + 'static {
     /// they can get stored directly without the `Arc` indirection.
     type LayerStore<T>: Borrow<T> + From<T>;
 
-    /// Corresponding `Layer` type. A `Chunk` type must always be paired with exactly one `Layer` type.
-    type Layer: Layer;
+    /// Tuple of `LayerDependency` that `compute` needs access to.
+    type Dependencies: Layer;
 
     /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
     /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
@@ -142,7 +142,7 @@ pub trait Chunk: Sized + 'static {
     const SIZE: Point2d<u8> = Point2d::splat(8);
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Layer, index: GridPoint<Self>) -> Self::Store;
+    fn compute(layer: &Self::Dependencies, index: GridPoint<Self>) -> Self::Store;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
@@ -164,7 +164,7 @@ pub trait Chunk: Sized + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
-    fn default_layer() -> Self::Layer {
+    fn default_layer() -> Self::Dependencies {
         Default::default()
     }
 }

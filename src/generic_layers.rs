@@ -43,12 +43,12 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
     for UniformPoint<P, SIZE, SALT>
 {
     type LayerStore<T> = T;
-    type Layer = ();
+    type Dependencies = ();
     type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute(_layer: &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute(_layer: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let points = generate_points::<SALT, Self>(index);
         Self {
             points: points.map(P::from).collect(),

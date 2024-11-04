@@ -13,10 +13,10 @@ struct TheChunk(usize);
 
 impl Chunk for TheChunk {
     type LayerStore<T> = Arc<T>;
-    type Layer = ();
+    type Dependencies = ();
     type Store = Self;
 
-    fn compute(_layer: &Self::Layer, _index: GridPoint<Self>) -> Self {
+    fn compute(_layer: &Self::Dependencies, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
     }
 }
@@ -26,7 +26,7 @@ struct Player;
 
 impl Chunk for Player {
     type LayerStore<T> = T;
-    type Layer = (LayerDependency<TheChunk>,);
+    type Dependencies = (LayerDependency<TheChunk>,);
     type Store = Self;
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
@@ -35,7 +35,7 @@ impl Chunk for Player {
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
-    fn compute((layer,): &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute((layer,): &Self::Dependencies, index: GridPoint<Self>) -> Self {
         for _ in layer.get_range(Self::bounds(index)) {}
         Player
     }
@@ -46,7 +46,7 @@ struct MapChunk;
 
 impl Chunk for MapChunk {
     type LayerStore<T> = T;
-    type Layer = (LayerDependency<TheChunk>,);
+    type Dependencies = (LayerDependency<TheChunk>,);
     type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
@@ -55,7 +55,7 @@ impl Chunk for MapChunk {
 
     const GRID_OVERLAP: u8 = 1;
 
-    fn compute((layer,): &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute((layer,): &Self::Dependencies, index: GridPoint<Self>) -> Self {
         for _ in layer.get_range(Self::bounds(index)) {}
         MapChunk
     }

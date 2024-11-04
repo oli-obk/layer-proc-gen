@@ -78,14 +78,14 @@ struct ReducedLocations {
 
 impl Chunk for ReducedLocations {
     type LayerStore<T> = Arc<T>;
-    type Layer = (
+    type Dependencies = (
         LayerDependency<ReducedUniformPoint<Intersection, 6, 0>>,
         LayerDependency<ReducedUniformPoint<City, 11, 1>>,
     );
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
-    fn compute((raw_locations, cities): &Self::Layer, index: GridPoint<Self>) -> Self {
+    fn compute((raw_locations, cities): &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let bounds = Self::bounds(index);
         let center = bounds.center();
         let points = raw_locations
@@ -120,11 +120,11 @@ struct Roads {
 
 impl Chunk for Roads {
     type LayerStore<T> = T;
-    type Layer = (LayerDependency<ReducedLocations>,);
+    type Dependencies = (LayerDependency<ReducedLocations>,);
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
-    fn compute((locations,): &Self::Layer, index: GridPoint<Self>) -> Self::Store {
+    fn compute((locations,): &Self::Dependencies, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
             locations
                 .get_grid_range(
@@ -206,14 +206,14 @@ struct Highways {
 
 impl Chunk for Highways {
     type LayerStore<T> = T;
-    type Layer = (
+    type Dependencies = (
         LayerDependency<ReducedUniformPoint<City, 11, 1>>,
         LayerDependency<ReducedLocations>,
     );
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = ReducedUniformPoint::<City, 11, 1>::SIZE;
 
-    fn compute((cities, locations): &Self::Layer, index: GridPoint<Self>) -> Self::Store {
+    fn compute((cities, locations): &Self::Dependencies, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
             cities
                 .get_grid_range(
