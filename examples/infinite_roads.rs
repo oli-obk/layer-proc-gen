@@ -410,11 +410,11 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = LayerDependency::from(ReducedUniformPoint::default_layer());
-    let locations = LayerDependency::from((Default::default(), cities.clone()));
+    let cities = LayerDependency::new(ReducedUniformPoint::default_layer());
+    let locations = LayerDependency::new((Default::default(), cities.clone()));
     let mut player = Player::new(
-        (locations.clone(),).into(),
-        (cities.clone(), locations.clone()).into(),
+        LayerDependency::new((locations.clone(),)),
+        LayerDependency::new((cities.clone(), locations.clone())),
         locations,
     );
     let mut smooth_cam_speed = 0.0;

@@ -48,8 +48,8 @@ impl<C: Chunk> Default for LayerDependency<C> {
     }
 }
 
-impl<L: Layer, C: Chunk<Dependencies = L>> From<L> for LayerDependency<C> {
-    fn from(value: L) -> Self {
+impl<C: Chunk> LayerDependency<C> {
+    pub fn new(value: <C as Chunk>::Dependencies) -> Self {
         LayerDependency {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
