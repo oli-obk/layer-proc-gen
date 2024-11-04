@@ -5,7 +5,7 @@ use arrayvec::ArrayVec;
 use crate::{
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
-    Chunk, LayerDependency,
+    Chunk, Layer,
 };
 
 use super::UniformPoint;
@@ -32,11 +32,14 @@ impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPoint<P, SIZE
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoint<P, SIZE, SALT> {
     type LayerStore<T> = Arc<T>;
-    type Dependencies = (LayerDependency<UniformPoint<P, SIZE, SALT>>,);
+    type Dependencies = (UniformPoint<P, SIZE, SALT>,);
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute((raw_points,): &Self::Dependencies, index: GridPoint<Self>) -> Self {
+    fn compute(
+        (raw_points,): &<Self::Dependencies as Layer>::AsLayerDependencies,
+        index: GridPoint<Self>,
+    ) -> Self {
         let mut points = ArrayVec::new();
         'points: for p in raw_points
             .get_or_compute(index.into_same_chunk_size())

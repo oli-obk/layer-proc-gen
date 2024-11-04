@@ -13,13 +13,16 @@ use vec2::{Bounds, Point2d};
 pub mod generic_layers;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
-pub trait Layer: Default {}
+pub trait Layer {
+    type AsLayerDependencies: Default;
+}
 
 macro_rules! layer {
     ($($t:ident,)*) => {
         impl<$($t: Chunk,)*> Layer
-            for ($(LayerDependency<$t>,)*)
+            for ($($t,)*)
         {
+            type AsLayerDependencies = ($(LayerDependency<$t>,)*);
         }
     };
 }
@@ -49,7 +52,7 @@ impl<C: Chunk> Default for LayerDependency<C> {
 }
 
 impl<C: Chunk> LayerDependency<C> {
-    pub fn new(value: <C as Chunk>::Dependencies) -> Self {
+    pub fn new(value: <C::Dependencies as Layer>::AsLayerDependencies) -> Self {
         LayerDependency {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
@@ -70,7 +73,10 @@ where
 #[expect(type_alias_bounds)]
 type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
-type Tuple<C: Chunk> = (RollingGrid<C>, C::Dependencies);
+type Tuple<C: Chunk> = (
+    RollingGrid<C>,
+    <C::Dependencies as Layer>::AsLayerDependencies,
+);
 
 impl<C: Chunk> LayerDependency<C> {
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -142,7 +148,10 @@ pub trait Chunk: Sized + 'static {
     const SIZE: Point2d<u8> = Point2d::splat(8);
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &Self::Dependencies, index: GridPoint<Self>) -> Self::Store;
+    fn compute(
+        layer: &<Self::Dependencies as Layer>::AsLayerDependencies,
+        index: GridPoint<Self>,
+    ) -> Self::Store;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
@@ -164,7 +173,7 @@ pub trait Chunk: Sized + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
-    fn default_layer() -> Self::Dependencies {
+    fn default_layer() -> <Self::Dependencies as Layer>::AsLayerDependencies {
         Default::default()
     }
 }
