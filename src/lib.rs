@@ -121,6 +121,12 @@ impl<C: Chunk> Layer<C> {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
+
+    /// Iterate over all loaded chunks. This should only be used for debugging, as it has
+    /// no defined order of chunks and does not update the chunks' last-used timestamp.
+    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C::Store)> + '_ {
+        self.layer.borrow().0.iter_all_loaded()
+    }
 }
 
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.

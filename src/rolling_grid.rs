@@ -275,4 +275,12 @@ impl<C: Chunk> RollingGrid<C> {
             .get(Self::index_of_point(pos))
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
     }
+
+    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C::Store)> + '_ {
+        self.grid
+            .iter()
+            .flatten()
+            .filter(|cell| cell.last_access.get() != UNIX_EPOCH)
+            .map(|cell| (cell.pos.get(), cell.chunk.borrow().clone()))
+    }
 }

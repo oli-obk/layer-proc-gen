@@ -425,6 +425,8 @@ async fn main() {
     );
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
+    let mut debug_view = false;
+    let mut debug_chunks = false;
 
     loop {
         player.car.update(Actions {
@@ -440,6 +442,12 @@ async fn main() {
         if is_key_pressed(KeyCode::Down) {
             debug_zoom /= 2.0;
         }
+        if is_key_pressed(KeyCode::F1) {
+            debug_view = !debug_view;
+        }
+        if is_key_pressed(KeyCode::F2) {
+            debug_chunks = !debug_chunks;
+        }
 
         smooth_cam_speed = smooth_cam_speed * 0.99 + player.car.body.velocity.length() / 30. * 0.01;
         let max_zoom_in = f32::from(player.max_zoom_in.get());
@@ -454,7 +462,7 @@ async fn main() {
         clear_background(DARKGREEN);
 
         let draw_bounds = |bounds: Bounds| {
-            if debug_zoom == 1.0 {
+            if !debug_view {
                 return;
             }
             let min = point2screen(bounds.min);
@@ -470,7 +478,7 @@ async fn main() {
         };
 
         let padding = camera.screen_to_world(Vec2::splat(0.));
-        if debug_zoom != 1. {
+        if debug_view {
             draw_rectangle_lines(
                 -padding.x,
                 -padding.y,
@@ -493,6 +501,16 @@ async fn main() {
             let end = point2screen(line.end);
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
+
+        if debug_chunks {
+            for (index, chunk) in player.roads.iter_all_loaded() {
+                let current_chunk = Roads::bounds(index);
+                draw_bounds(current_chunk);
+                for &line in &chunk.roads {
+                    draw_line(line, debug_zoom, DARKPURPLE)
+                }
+            }
+        }
 
         let roads = player.roads(padding);
         let (roads, trees) = &*roads;
@@ -577,7 +595,7 @@ async fn main() {
             );
         }
 
-        if debug_zoom != 1.0 {
+        if debug_view {
             for &road in player
                 .roads
                 .get_or_compute(Roads::pos_to_grid(player.pos()))
@@ -598,7 +616,7 @@ async fn main() {
 
         player.car.draw();
 
-        if debug_zoom != 1.0 {
+        if debug_view {
             set_camera(&overlay_camera);
             draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
             draw_text(
