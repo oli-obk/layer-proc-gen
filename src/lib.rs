@@ -122,6 +122,21 @@ impl<C: Chunk> Layer<C> {
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
 
+    /// Get a 3x3 array of chunks around a specific chunk
+    pub fn get_moore_neighborhood(
+        &self,
+        index: GridPoint<C>,
+    ) -> impl Iterator<Item = C::Store> + '_ {
+        (0..9).map(move |i| {
+            let index = index
+                + GridPoint::new(
+                    GridIndex::from_raw(i % 3 - 1),
+                    GridIndex::from_raw(i / 3 - 1),
+                );
+            self.get_or_compute(index)
+        })
+    }
+
     /// Iterate over all loaded chunks. This should only be used for debugging, as it has
     /// no defined order of chunks and does not update the chunks' last-used timestamp.
     pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C::Store)> + '_ {

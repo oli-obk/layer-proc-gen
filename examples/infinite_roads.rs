@@ -14,7 +14,7 @@ use std::{
 use layer_proc_gen::*;
 use rigid2d::Body;
 use rolling_grid::{GridIndex, GridPoint};
-use vec2::{Bounds, Line, Num, Point2d};
+use vec2::{Bounds, Line, Point2d};
 
 #[path = "../tests/tracing.rs"]
 mod tracing_helper;
@@ -133,9 +133,7 @@ impl Chunk for Roads {
     ) -> Self::Store {
         let roads = gen_roads(
             locations
-                .get_grid_range(
-                    Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
-                )
+                .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |&p| p,
             |&a, &b| a.to(b),
@@ -222,9 +220,7 @@ impl Chunk for Highways {
     ) -> Self::Store {
         let roads = gen_roads(
             cities
-                .get_grid_range(
-                    Bounds::point(index.into_same_chunk_size()).pad(Point2d::splat(GridIndex::ONE)),
-                )
+                .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |p| p.center,
             |a, b| {
