@@ -17,7 +17,7 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-/// Removes locations that are too close to others
+/// Removes locations that are too close to others.
 pub struct ReducedUniformPoint<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
 }

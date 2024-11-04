@@ -12,7 +12,10 @@ use vec2::{Bounds, Point2d};
 
 pub mod generic_layers;
 
-/// Each layer stores a RollingGrid of corresponding chunks.
+/// A tuple of `Chunk` types.
+///
+/// Used to represent the `Chunk` types that a `Layer` depends on for computing
+/// its own chunks.
 pub trait Dependencies {
     /// The actual `Layer` types corresponding to this tuple of `Chunk` types
     type Layer: Default;

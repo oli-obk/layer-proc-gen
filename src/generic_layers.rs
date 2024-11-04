@@ -27,6 +27,10 @@ fn poisson_1(val: f32) -> u8 {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+/// A type of chunk that contains on average one point.
+/// You can specify a size in real world coordinates as well as
+/// a random number generator salt for picking different points
+/// even for the same chunk coordinates.
 pub struct UniformPoint<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
 }
