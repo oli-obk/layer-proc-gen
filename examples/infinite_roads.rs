@@ -8,6 +8,7 @@ use std::{
     cell::{Cell, Ref, RefCell},
     f32::consts::PI,
     num::NonZeroU8,
+    ops::Range,
     sync::Arc,
 };
 
@@ -32,12 +33,16 @@ impl From<Point2d> for City {
         let mut rng = rng_for_point::<0, _>(center);
         City {
             center,
-            size: { (100..500).sample_single(&mut rng) },
+            size: { Self::SIZES.sample_single(&mut rng) },
             name: (0..(3..12).sample_single(&mut rng))
                 .map(|_| ('a'..='z').sample_single(&mut rng))
                 .collect(),
         }
     }
+}
+
+impl City {
+    const SIZES: Range<i64> = 100..500;
 }
 
 impl Reducible for City {
@@ -97,12 +102,15 @@ impl Chunk for ReducedLocations {
             .iter()
             .map(|p| p.0)
             .collect();
-        if cities.get_range(bounds).all(|cities| {
-            cities
-                .points
-                .iter()
-                .all(|city| center.manhattan_dist(city.center) > city.size)
-        }) {
+        if cities
+            .get_range(Bounds::point(center).pad(Point2d::splat(City::SIZES.end)))
+            .all(|cities| {
+                cities
+                    .points
+                    .iter()
+                    .all(|city| center.manhattan_dist(city.center) > city.size)
+            })
+        {
             ReducedLocations {
                 points: ArrayVec::default(),
                 trees: points,
