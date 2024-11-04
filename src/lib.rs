@@ -13,13 +13,13 @@ use vec2::{Bounds, Point2d};
 pub mod generic_layers;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
-pub trait Layer {
+pub trait Dependencies {
     type AsLayerDependencies: Default;
 }
 
 macro_rules! layer {
     ($($t:ident,)*) => {
-        impl<$($t: Chunk,)*> Layer
+        impl<$($t: Chunk,)*> Dependencies
             for ($($t,)*)
         {
             type AsLayerDependencies = ($(LayerDependency<$t>,)*);
@@ -52,7 +52,7 @@ impl<C: Chunk> Default for LayerDependency<C> {
 }
 
 impl<C: Chunk> LayerDependency<C> {
-    pub fn new(value: <C::Dependencies as Layer>::AsLayerDependencies) -> Self {
+    pub fn new(value: <C::Dependencies as Dependencies>::AsLayerDependencies) -> Self {
         LayerDependency {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
@@ -75,7 +75,7 @@ type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
 type Tuple<C: Chunk> = (
     RollingGrid<C>,
-    <C::Dependencies as Layer>::AsLayerDependencies,
+    <C::Dependencies as Dependencies>::AsLayerDependencies,
 );
 
 impl<C: Chunk> LayerDependency<C> {
@@ -138,7 +138,7 @@ pub trait Chunk: Sized + 'static {
     type LayerStore<T>: Borrow<T> + From<T>;
 
     /// Tuple of `LayerDependency` that `compute` needs access to.
-    type Dependencies: Layer;
+    type Dependencies: Dependencies;
 
     /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
     /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
@@ -149,7 +149,7 @@ pub trait Chunk: Sized + 'static {
 
     /// Compute a chunk from its dependencies
     fn compute(
-        layer: &<Self::Dependencies as Layer>::AsLayerDependencies,
+        layer: &<Self::Dependencies as Dependencies>::AsLayerDependencies,
         index: GridPoint<Self>,
     ) -> Self::Store;
 
@@ -173,7 +173,7 @@ pub trait Chunk: Sized + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
-    fn default_layer() -> <Self::Dependencies as Layer>::AsLayerDependencies {
+    fn default_layer() -> <Self::Dependencies as Dependencies>::AsLayerDependencies {
         Default::default()
     }
 }

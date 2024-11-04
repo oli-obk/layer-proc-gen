@@ -1,6 +1,6 @@
 use crate::{
     vec2::{Abs, Num, Point2d},
-    Chunk, Layer,
+    Chunk, Dependencies,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -221,7 +221,7 @@ impl<C: Chunk> RollingGrid<C> {
     pub fn get_or_compute(
         &self,
         pos: GridPoint<C>,
-        layer: &<C::Dependencies as Layer>::AsLayerDependencies,
+        layer: &<C::Dependencies as Dependencies>::AsLayerDependencies,
     ) -> C::Store {
         let now = SystemTime::now();
         // Find existing entry and bump its last use, or
