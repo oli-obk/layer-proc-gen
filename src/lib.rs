@@ -22,7 +22,7 @@ macro_rules! layer {
         impl<$($t: Chunk,)*> Dependencies
             for ($($t,)*)
         {
-            type AsLayerDependencies = ($(LayerDependency<$t>,)*);
+            type AsLayerDependencies = ($(Layer<$t>,)*);
         }
     };
 }
@@ -39,11 +39,11 @@ macro_rules! layers {
 layers!(=> T, U, V,);
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
-pub struct LayerDependency<C: Chunk> {
+pub struct Layer<C: Chunk> {
     layer: Store<C>,
 }
 
-impl<C: Chunk> Default for LayerDependency<C> {
+impl<C: Chunk> Default for Layer<C> {
     fn default() -> Self {
         Self {
             layer: Store::<C>::from(Default::default()),
@@ -51,15 +51,15 @@ impl<C: Chunk> Default for LayerDependency<C> {
     }
 }
 
-impl<C: Chunk> LayerDependency<C> {
+impl<C: Chunk> Layer<C> {
     pub fn new(value: <C::Dependencies as Dependencies>::AsLayerDependencies) -> Self {
-        LayerDependency {
+        Layer {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
     }
 }
 
-impl<C: Chunk> Clone for LayerDependency<C>
+impl<C: Chunk> Clone for Layer<C>
 where
     Store<C>: Clone,
 {
@@ -78,7 +78,7 @@ type Tuple<C: Chunk> = (
     <C::Dependencies as Dependencies>::AsLayerDependencies,
 );
 
-impl<C: Chunk> LayerDependency<C> {
+impl<C: Chunk> Layer<C> {
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.

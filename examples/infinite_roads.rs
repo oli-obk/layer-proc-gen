@@ -279,9 +279,9 @@ impl Chunk for Highways {
 }
 
 struct Player {
-    roads: LayerDependency<Roads>,
-    trees: LayerDependency<ReducedLocations>,
-    highways: LayerDependency<Highways>,
+    roads: Layer<Roads>,
+    trees: Layer<ReducedLocations>,
+    highways: Layer<Highways>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
@@ -295,9 +295,9 @@ struct Tree {
 
 impl Player {
     pub fn new(
-        roads: LayerDependency<Roads>,
-        highways: LayerDependency<Highways>,
-        trees: LayerDependency<ReducedLocations>,
+        roads: Layer<Roads>,
+        highways: Layer<Highways>,
+        trees: Layer<ReducedLocations>,
     ) -> Self {
         Self {
             roads: roads.into(),
@@ -416,11 +416,11 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = LayerDependency::new(ReducedUniformPoint::default_layer());
-    let locations = LayerDependency::new((Default::default(), cities.clone()));
+    let cities = Layer::new(ReducedUniformPoint::default_layer());
+    let locations = Layer::new((Default::default(), cities.clone()));
     let mut player = Player::new(
-        LayerDependency::new((locations.clone(),)),
-        LayerDependency::new((cities.clone(), locations.clone())),
+        Layer::new((locations.clone(),)),
+        Layer::new((cities.clone(), locations.clone())),
         locations,
     );
     let mut smooth_cam_speed = 0.0;
