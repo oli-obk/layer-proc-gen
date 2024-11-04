@@ -221,7 +221,7 @@ impl<C: Chunk> RollingGrid<C> {
     pub fn get_or_compute(
         &self,
         pos: GridPoint<C>,
-        layer: &<C::Dependencies as Dependencies>::AsLayerDependencies,
+        layer: &<C::Dependencies as Dependencies>::Layer,
     ) -> C::Store {
         let now = SystemTime::now();
         // Find existing entry and bump its last use, or

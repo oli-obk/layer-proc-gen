@@ -86,7 +86,7 @@ impl Chunk for ReducedLocations {
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
-        (raw_locations, cities): &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        (raw_locations, cities): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let bounds = Self::bounds(index);
@@ -128,7 +128,7 @@ impl Chunk for Roads {
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
-        (locations,): &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        (locations,): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self::Store {
         let roads = gen_roads(
@@ -217,7 +217,7 @@ impl Chunk for Highways {
     const SIZE: Point2d<u8> = ReducedUniformPoint::<City, 11, 1>::SIZE;
 
     fn compute(
-        (cities, locations): &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        (cities, locations): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self::Store {
         let roads = gen_roads(

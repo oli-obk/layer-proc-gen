@@ -36,7 +36,7 @@ impl Chunk for Player {
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
     fn compute(
-        (layer,): &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        (layer,): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         for _ in layer.get_range(Self::bounds(index)) {}
@@ -59,7 +59,7 @@ impl Chunk for MapChunk {
     const GRID_OVERLAP: u8 = 1;
 
     fn compute(
-        (layer,): &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        (layer,): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         for _ in layer.get_range(Self::bounds(index)) {}

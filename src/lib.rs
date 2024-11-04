@@ -14,7 +14,8 @@ pub mod generic_layers;
 
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Dependencies {
-    type AsLayerDependencies: Default;
+    /// The actual `Layer` types corresponding to this tuple of `Chunk` types
+    type Layer: Default;
 }
 
 macro_rules! layer {
@@ -22,7 +23,7 @@ macro_rules! layer {
         impl<$($t: Chunk,)*> Dependencies
             for ($($t,)*)
         {
-            type AsLayerDependencies = ($(Layer<$t>,)*);
+            type Layer = ($(Layer<$t>,)*);
         }
     };
 }
@@ -52,7 +53,7 @@ impl<C: Chunk> Default for Layer<C> {
 }
 
 impl<C: Chunk> Layer<C> {
-    pub fn new(value: <C::Dependencies as Dependencies>::AsLayerDependencies) -> Self {
+    pub fn new(value: <C::Dependencies as Dependencies>::Layer) -> Self {
         Layer {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
@@ -73,10 +74,7 @@ where
 #[expect(type_alias_bounds)]
 type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
-type Tuple<C: Chunk> = (
-    RollingGrid<C>,
-    <C::Dependencies as Dependencies>::AsLayerDependencies,
-);
+type Tuple<C: Chunk> = (RollingGrid<C>, <C::Dependencies as Dependencies>::Layer);
 
 impl<C: Chunk> Layer<C> {
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -149,7 +147,7 @@ pub trait Chunk: Sized + 'static {
 
     /// Compute a chunk from its dependencies
     fn compute(
-        layer: &<Self::Dependencies as Dependencies>::AsLayerDependencies,
+        layer: &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self::Store;
 
@@ -173,7 +171,7 @@ pub trait Chunk: Sized + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
-    fn default_layer() -> <Self::Dependencies as Dependencies>::AsLayerDependencies {
+    fn default_layer() -> <Self::Dependencies as Dependencies>::Layer {
         Default::default()
     }
 }
