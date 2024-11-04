@@ -27,11 +27,11 @@ fn poisson_1(val: f32) -> u8 {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct UniformPointChunk<P, const SIZE: u8, const SALT: u64> {
+pub struct UniformPoint<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
 }
 
-impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointChunk<P, SIZE, SALT> {
+impl<P, const SIZE: u8, const SALT: u64> Default for UniformPoint<P, SIZE, SALT> {
     fn default() -> Self {
         Self {
             points: Default::default(),
@@ -40,7 +40,7 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPointChunk<P, SIZE, 
 }
 
 impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
-    for UniformPointChunk<P, SIZE, SALT>
+    for UniformPoint<P, SIZE, SALT>
 {
     type LayerStore<T> = T;
     type Layer = ();

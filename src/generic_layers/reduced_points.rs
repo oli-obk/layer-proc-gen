@@ -8,7 +8,7 @@ use crate::{
     Chunk, LayerDependency,
 };
 
-use super::UniformPointChunk;
+use super::UniformPoint;
 
 pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     /// The radius around the thing to be kept free from other things.
@@ -18,11 +18,11 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
 
 #[derive(PartialEq, Debug, Clone)]
 /// Removes locations that are too close to others
-pub struct ReducedUniformPointChunk<P, const SIZE: u8, const SALT: u64> {
+pub struct ReducedUniformPoint<P, const SIZE: u8, const SALT: u64> {
     pub points: ArrayVec<P, 7>,
 }
 
-impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P, SIZE, SALT> {
+impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPoint<P, SIZE, SALT> {
     fn default() -> Self {
         Self {
             points: Default::default(),
@@ -30,11 +30,9 @@ impl<P, const SIZE: u8, const SALT: u64> Default for ReducedUniformPointChunk<P,
     }
 }
 
-impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
-    for ReducedUniformPointChunk<P, SIZE, SALT>
-{
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoint<P, SIZE, SALT> {
     type LayerStore<T> = Arc<T>;
-    type Layer = (LayerDependency<UniformPointChunk<P, SIZE, SALT>>,);
+    type Layer = (LayerDependency<UniformPoint<P, SIZE, SALT>>,);
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
@@ -62,6 +60,6 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk
             }
             points.push(p);
         }
-        ReducedUniformPointChunk { points }
+        ReducedUniformPoint { points }
     }
 }

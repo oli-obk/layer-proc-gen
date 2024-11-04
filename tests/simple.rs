@@ -22,9 +22,9 @@ impl Chunk for TheChunk {
 }
 
 #[derive(Clone, Default)]
-struct PlayerChunk;
+struct Player;
 
-impl Chunk for PlayerChunk {
+impl Chunk for Player {
     type LayerStore<T> = T;
     type Layer = (LayerDependency<TheChunk>,);
     type Store = Self;
@@ -37,7 +37,7 @@ impl Chunk for PlayerChunk {
 
     fn compute((layer,): &Self::Layer, index: GridPoint<Self>) -> Self {
         for _ in layer.get_range(Self::bounds(index)) {}
-        PlayerChunk
+        Player
     }
 }
 
@@ -81,7 +81,7 @@ fn double_assign_chunk() {
 fn create_player() {
     init_tracing();
     let the_layer = LayerDependency::from(());
-    let player = LayerDependency::<PlayerChunk>::from((the_layer.clone(),));
+    let player = LayerDependency::<Player>::from((the_layer.clone(),));
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
     let map = LayerDependency::<MapChunk>::from((the_layer,));

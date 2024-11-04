@@ -1,6 +1,6 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
-use generic_layers::{rng_for_point, ReducedUniformPointChunk, Reducible};
+use generic_layers::{rng_for_point, ReducedUniformPoint, Reducible};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
@@ -71,16 +71,16 @@ impl Reducible for Intersection {
 
 /// Removes locations that are too close to others
 #[derive(PartialEq, Debug, Clone, Default)]
-struct ReducedLocationsChunk {
+struct ReducedLocations {
     points: ArrayVec<Point2d, 7>,
     trees: ArrayVec<Point2d, 7>,
 }
 
-impl Chunk for ReducedLocationsChunk {
+impl Chunk for ReducedLocations {
     type LayerStore<T> = Arc<T>;
     type Layer = (
-        LayerDependency<ReducedUniformPointChunk<Intersection, 6, 0>>,
-        LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
+        LayerDependency<ReducedUniformPoint<Intersection, 6, 0>>,
+        LayerDependency<ReducedUniformPoint<City, 11, 1>>,
     );
     type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
@@ -100,12 +100,12 @@ impl Chunk for ReducedLocationsChunk {
                 .iter()
                 .all(|city| center.manhattan_dist(city.center) > city.size)
         }) {
-            ReducedLocationsChunk {
+            ReducedLocations {
                 points: ArrayVec::default(),
                 trees: points,
             }
         } else {
-            ReducedLocationsChunk {
+            ReducedLocations {
                 points,
                 trees: ArrayVec::default(),
             }
@@ -114,13 +114,13 @@ impl Chunk for ReducedLocationsChunk {
 }
 
 #[derive(PartialEq, Debug, Default)]
-struct RoadsChunk {
+struct Roads {
     roads: Vec<Line>,
 }
 
-impl Chunk for RoadsChunk {
+impl Chunk for Roads {
     type LayerStore<T> = T;
-    type Layer = (LayerDependency<ReducedLocationsChunk>,);
+    type Layer = (LayerDependency<ReducedLocations>,);
     type Store = Arc<Self>;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
@@ -134,7 +134,7 @@ impl Chunk for RoadsChunk {
             |&p| p,
             |&a, &b| a.to(b),
         );
-        RoadsChunk { roads }.into()
+        Roads { roads }.into()
     }
 }
 
@@ -200,18 +200,18 @@ struct Highway {
 }
 
 #[derive(PartialEq, Debug, Default)]
-struct HighwaysChunk {
+struct Highways {
     roads: Vec<Highway>,
 }
 
-impl Chunk for HighwaysChunk {
+impl Chunk for Highways {
     type LayerStore<T> = T;
     type Layer = (
-        LayerDependency<ReducedUniformPointChunk<City, 11, 1>>,
-        LayerDependency<ReducedLocationsChunk>,
+        LayerDependency<ReducedUniformPoint<City, 11, 1>>,
+        LayerDependency<ReducedLocations>,
     );
     type Store = Arc<Self>;
-    const SIZE: Point2d<u8> = ReducedUniformPointChunk::<City, 11, 1>::SIZE;
+    const SIZE: Point2d<u8> = ReducedUniformPoint::<City, 11, 1>::SIZE;
 
     fn compute((cities, locations): &Self::Layer, index: GridPoint<Self>) -> Self::Store {
         let roads = gen_roads(
@@ -268,21 +268,18 @@ impl Chunk for HighwaysChunk {
                 }
             })
             .collect();
-        HighwaysChunk { roads }.into()
+        Highways { roads }.into()
     }
 }
 
 struct Player {
-    roads: LayerDependency<RoadsChunk>,
-    trees: LayerDependency<ReducedLocationsChunk>,
-    highways: LayerDependency<HighwaysChunk>,
+    roads: LayerDependency<Roads>,
+    trees: LayerDependency<ReducedLocations>,
+    highways: LayerDependency<Highways>,
     max_zoom_in: NonZeroU8,
     max_zoom_out: NonZeroU8,
     car: Car,
-    last_grid_vision_range: Cell<(
-        Bounds<GridIndex<RoadsChunk>>,
-        Bounds<GridIndex<HighwaysChunk>>,
-    )>,
+    last_grid_vision_range: Cell<(Bounds<GridIndex<Roads>>, Bounds<GridIndex<Highways>>)>,
     roads_for_last_grid_vision_range: RefCell<(Vec<Highway>, Vec<Tree>)>,
 }
 
@@ -292,9 +289,9 @@ struct Tree {
 
 impl Player {
     pub fn new(
-        roads: LayerDependency<RoadsChunk>,
-        highways: LayerDependency<HighwaysChunk>,
-        trees: LayerDependency<ReducedLocationsChunk>,
+        roads: LayerDependency<Roads>,
+        highways: LayerDependency<Highways>,
+        trees: LayerDependency<ReducedLocations>,
     ) -> Self {
         Self {
             roads: roads.into(),
@@ -413,7 +410,7 @@ async fn main() {
     overlay_camera.zoom = standard_zoom / 4.;
     overlay_camera.offset = vec2(-1., 1.);
 
-    let cities = LayerDependency::from(ReducedUniformPointChunk::default_layer());
+    let cities = LayerDependency::from(ReducedUniformPoint::default_layer());
     let locations = LayerDependency::from((Default::default(), cities.clone()));
     let mut player = Player::new(
         (locations.clone(),).into(),
@@ -477,11 +474,11 @@ async fn main() {
                 PURPLE,
             );
         }
-        let vision_range = player.vision_range::<RoadsChunk>(padding);
+        let vision_range = player.vision_range::<Roads>(padding);
         draw_bounds(vision_range);
 
         for index in player.grid_vision_range(padding).iter() {
-            let current_chunk = RoadsChunk::bounds(index);
+            let current_chunk = Roads::bounds(index);
             draw_bounds(current_chunk);
         }
 
@@ -577,14 +574,14 @@ async fn main() {
         if debug_zoom != 1.0 {
             for &road in player
                 .roads
-                .get_or_compute(RoadsChunk::pos_to_grid(player.pos()))
+                .get_or_compute(Roads::pos_to_grid(player.pos()))
                 .roads
                 .iter()
             {
                 draw_line(road, debug_zoom, PURPLE)
             }
             for city in cities
-                .get_or_compute(ReducedUniformPointChunk::pos_to_grid(player.pos()))
+                .get_or_compute(ReducedUniformPoint::pos_to_grid(player.pos()))
                 .points
                 .iter()
             {
