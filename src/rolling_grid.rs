@@ -199,7 +199,7 @@ impl<C: Chunk> GridPoint<C> {
 
 struct ActiveCell<C: Chunk> {
     pos: Cell<GridPoint<C>>,
-    chunk: RefCell<C::Store>,
+    chunk: RefCell<C>,
     last_access: Cell<SystemTime>,
 }
 
@@ -222,7 +222,7 @@ impl<C: Chunk> RollingGrid<C> {
         &self,
         pos: GridPoint<C>,
         layer: &<C::Dependencies as Dependencies>::Layer,
-    ) -> C::Store {
+    ) -> C {
         let now = SystemTime::now();
         // Find existing entry and bump its last use, or
         // find an empty entry, or
@@ -276,7 +276,7 @@ impl<C: Chunk> RollingGrid<C> {
             .unwrap_or_else(|| panic!("grid position {pos:?} out of bounds"))
     }
 
-    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C::Store)> + '_ {
+    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C)> + '_ {
         self.grid
             .iter()
             .flatten()

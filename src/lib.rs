@@ -99,7 +99,7 @@ impl<C: Chunk> Layer<C> {
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get_or_compute(&self, index: GridPoint<C>) -> C::Store {
+    pub fn get_or_compute(&self, index: GridPoint<C>) -> C {
         self.layer
             .borrow()
             .0
@@ -107,26 +107,20 @@ impl<C: Chunk> Layer<C> {
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
-    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = C::Store> + '_ {
+    pub fn get_range(&self, range: Bounds) -> impl Iterator<Item = C> + '_ {
         let range = C::bounds_to_grid(range);
         self.get_grid_range(range)
     }
 
     /// Get an iterator over chunks as given by the bounds (in chunk grid indices).
     /// Chunks will be generated on the fly.
-    pub fn get_grid_range(
-        &self,
-        range: Bounds<GridIndex<C>>,
-    ) -> impl Iterator<Item = C::Store> + '_ {
+    pub fn get_grid_range(&self, range: Bounds<GridIndex<C>>) -> impl Iterator<Item = C> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
         range.iter().map(move |pos| self.get_or_compute(pos))
     }
 
     /// Get a 3x3 array of chunks around a specific chunk
-    pub fn get_moore_neighborhood(
-        &self,
-        index: GridPoint<C>,
-    ) -> impl Iterator<Item = C::Store> + '_ {
+    pub fn get_moore_neighborhood(&self, index: GridPoint<C>) -> impl Iterator<Item = C> + '_ {
         (0..9).map(move |i| {
             let index = index
                 + GridPoint::new(
@@ -139,13 +133,13 @@ impl<C: Chunk> Layer<C> {
 
     /// Iterate over all loaded chunks. This should only be used for debugging, as it has
     /// no defined order of chunks and does not update the chunks' last-used timestamp.
-    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C::Store)> + '_ {
+    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C)> + '_ {
         self.layer.borrow().0.iter_all_loaded()
     }
 }
 
 /// Chunks are always rectangular and all chunks in a given layer have the same world space size.
-pub trait Chunk: Sized + 'static {
+pub trait Chunk: Sized + Default + Clone + 'static {
     /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
     /// This is the area that should stay in memory at all times as it will get requested a lot.
     const GRID_SIZE: Point2d<u8> = Point2d::splat(5);
@@ -162,18 +156,12 @@ pub trait Chunk: Sized + 'static {
     /// Tuple of `LayerDependency` that `compute` needs access to.
     type Dependencies: Dependencies;
 
-    /// For small and cheap to clone `Chunk` types, just use `Self` for `Store`,
-    /// otherwise any thread safe shared smart pointer type will suffice, usually `Arc<Self>`.
-    type Store: Clone + Borrow<Self> + Default;
-
     /// Width and height of the chunk (in powers of two);
     const SIZE: Point2d<u8> = Point2d::splat(8);
 
     /// Compute a chunk from its dependencies
-    fn compute(
-        layer: &<Self::Dependencies as Dependencies>::Layer,
-        index: GridPoint<Self>,
-    ) -> Self::Store;
+    fn compute(layer: &<Self::Dependencies as Dependencies>::Layer, index: GridPoint<Self>)
+        -> Self;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {

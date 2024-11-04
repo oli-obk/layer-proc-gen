@@ -48,7 +48,6 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
 {
     type LayerStore<T> = T;
     type Dependencies = ();
-    type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 

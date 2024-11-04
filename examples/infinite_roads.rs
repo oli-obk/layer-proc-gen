@@ -87,7 +87,6 @@ impl Chunk for ReducedLocations {
         ReducedUniformPoint<Intersection, 6, 0>,
         ReducedUniformPoint<City, 11, 1>,
     );
-    type Store = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
@@ -124,29 +123,29 @@ impl Chunk for ReducedLocations {
     }
 }
 
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug, Default, Clone)]
 struct Roads {
-    roads: Vec<Line>,
+    roads: Arc<Vec<Line>>,
 }
 
 impl Chunk for Roads {
     type LayerStore<T> = T;
     type Dependencies = (ReducedLocations,);
-    type Store = Arc<Self>;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
         (locations,): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
-    ) -> Self::Store {
+    ) -> Self {
         let roads = gen_roads(
             locations
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |&p| p,
             |&a, &b| a.to(b),
-        );
-        Roads { roads }.into()
+        )
+        .into();
+        Roads { roads }
     }
 }
 
@@ -211,21 +210,20 @@ struct Highway {
     end_sign: String,
 }
 
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug, Default, Clone)]
 struct Highways {
-    roads: Vec<Highway>,
+    roads: Arc<Vec<Highway>>,
 }
 
 impl Chunk for Highways {
     type LayerStore<T> = T;
     type Dependencies = (ReducedUniformPoint<City, 11, 1>, ReducedLocations);
-    type Store = Arc<Self>;
     const SIZE: Point2d<u8> = ReducedUniformPoint::<City, 11, 1>::SIZE;
 
     fn compute(
         (cities, locations): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
-    ) -> Self::Store {
+    ) -> Self {
         let roads = gen_roads(
             cities
                 .get_moore_neighborhood(index.into_same_chunk_size())
@@ -278,7 +276,9 @@ impl Chunk for Highways {
                 }
             })
             .collect();
-        Highways { roads }.into()
+        Highways {
+            roads: Arc::new(roads),
+        }
     }
 }
 
@@ -381,7 +381,7 @@ impl Player {
             roads.clear();
             trees.clear();
             for index in grid_vision_range.iter() {
-                for &line in &self.roads.get_or_compute(index).roads {
+                for &line in self.roads.get_or_compute(index).roads.iter() {
                     roads.push(Highway {
                         line,
                         start_city: String::new(),
@@ -510,7 +510,7 @@ async fn main() {
             for (index, chunk) in player.roads.iter_all_loaded() {
                 let current_chunk = Roads::bounds(index);
                 draw_bounds(current_chunk);
-                for &line in &chunk.roads {
+                for &line in chunk.roads.iter() {
                     draw_line(line, debug_zoom, DARKPURPLE)
                 }
             }

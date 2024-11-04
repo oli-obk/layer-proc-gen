@@ -14,7 +14,6 @@ struct TheChunk(usize);
 impl Chunk for TheChunk {
     type LayerStore<T> = Arc<T>;
     type Dependencies = ();
-    type Store = Self;
 
     fn compute(_layer: &Self::Dependencies, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
@@ -27,7 +26,6 @@ struct Player;
 impl Chunk for Player {
     type LayerStore<T> = T;
     type Dependencies = (TheChunk,);
-    type Store = Self;
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
 
@@ -50,7 +48,6 @@ struct MapChunk;
 impl Chunk for MapChunk {
     type LayerStore<T> = T;
     type Dependencies = (TheChunk,);
-    type Store = Self;
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
