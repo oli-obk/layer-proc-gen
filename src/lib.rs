@@ -15,9 +15,25 @@ pub mod generic_layers;
 /// Each layer stores a RollingGrid of corresponding chunks.
 pub trait Layer: Default {}
 
-impl Layer for () {}
-impl<T: Chunk> Layer for (LayerDependency<T>,) {}
-impl<T: Chunk, U: Chunk> Layer for (LayerDependency<T>, LayerDependency<U>) {}
+macro_rules! layer {
+    ($($t:ident,)*) => {
+        impl<$($t: Chunk,)*> Layer
+            for ($(LayerDependency<$t>,)*)
+        {
+        }
+    };
+}
+macro_rules! layers {
+    ($($first:ident,)* =>) => {
+        layer!($($first,)*);
+    };
+    ($($first:ident,)* => $next:ident, $($t:ident,)*) => {
+        layer!($($first,)*);
+        layers!($($first,)* $next, => $($t,)*);
+    };
+}
+
+layers!(=> T, U, V,);
 
 /// Actual way to access dependency layers. Handles generating and fetching the right blocks.
 pub struct LayerDependency<C: Chunk> {
