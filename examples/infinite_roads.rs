@@ -392,12 +392,11 @@ impl Player {
 
     pub fn vision_range<C: Chunk>(&self, half_screen_visible_area: Vec2) -> Bounds {
         let padding = half_screen_visible_area.abs().ceil().as_i64vec2();
-        let padding = Point2d::new(padding.x as i64, padding.y as i64);
-        let mut vision_range = Bounds::point(self.pos()).pad(padding);
-        let padding = C::SIZE.map(|i| 1 << i);
-        vision_range.min -= padding;
-        vision_range.max += padding;
-        vision_range
+        Bounds::point(self.pos())
+            // pad by the screen area, so everything that will get rendered is within the vision range
+            .pad(Point2d::new(padding.x, padding.y))
+            // Pad by a chunk size to make sure we see effects from the neighboring chunks
+            .pad(C::SIZE.map(|i| 1 << i))
     }
 
     pub fn grid_vision_range<C: Chunk>(
