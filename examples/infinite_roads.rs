@@ -383,11 +383,10 @@ impl Player {
     }
 
     fn pos(&self) -> Point2d {
-        let player_pos = Point2d {
+        Point2d {
             x: self.car.body.position.x as i64,
             y: self.car.body.position.y as i64,
-        };
-        player_pos
+        }
     }
 
     pub fn vision_range<C: Chunk>(&self, half_screen_visible_area: Vec2) -> Bounds {
