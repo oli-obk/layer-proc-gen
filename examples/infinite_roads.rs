@@ -502,7 +502,7 @@ async fn main() {
         let point2screen = player.point2screen();
         clear_background(DARKGREEN);
 
-        let draw_bounds = |bounds: Bounds| {
+        let draw_bounds = |bounds: Bounds, color| {
             if !debug_view {
                 return;
             }
@@ -514,28 +514,11 @@ async fn main() {
                 (max.x - min.x) as f32,
                 (max.y - min.y) as f32,
                 debug_zoom,
-                PURPLE,
+                color,
             );
         };
 
         let padding = camera.screen_to_world(Vec2::splat(0.));
-        if debug_view {
-            draw_rectangle_lines(
-                -padding.x,
-                -padding.y,
-                padding.x * 2.,
-                padding.y * 2.,
-                debug_zoom,
-                PURPLE,
-            );
-        }
-        let vision_range = player.vision_range::<Roads>(padding);
-        draw_bounds(vision_range);
-
-        for index in player.grid_vision_range(padding).iter() {
-            let current_chunk = Roads::bounds(index);
-            draw_bounds(current_chunk);
-        }
 
         let draw_line = |line: Line, thickness, color| {
             let start = point2screen(line.start);
@@ -641,7 +624,7 @@ async fn main() {
         };
         let draw_layer_debug = |layer: Box<dyn DynLayer>, color| {
             for (current_chunk, chunk) in layer.iter_all_loaded() {
-                draw_bounds(current_chunk);
+                draw_bounds(current_chunk, color);
                 for debug in chunk.render() {
                     draw_debug_content(debug, debug_zoom, color)
                 }
@@ -656,6 +639,22 @@ async fn main() {
         }
 
         if debug_view {
+            draw_rectangle_lines(
+                -padding.x,
+                -padding.y,
+                padding.x * 2.,
+                padding.y * 2.,
+                debug_zoom,
+                PURPLE,
+            );
+
+            let vision_range = player.vision_range::<Roads>(padding);
+            draw_bounds(vision_range, PURPLE);
+
+            for index in player.grid_vision_range(padding).iter() {
+                let current_chunk = Roads::bounds(index);
+                draw_bounds(current_chunk, PURPLE);
+            }
             set_camera(&overlay_camera);
             draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
             draw_text(
