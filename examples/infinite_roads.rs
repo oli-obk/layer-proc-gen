@@ -7,6 +7,7 @@ use miniquad::window::screen_size;
 use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
+    collections::{BTreeMap, HashMap},
     f32::consts::PI,
     num::NonZeroU8,
     ops::Range,
@@ -460,14 +461,27 @@ async fn main() {
     let mut player = Player::new(
         Layer::new((locations.clone(),)),
         Layer::new((cities.clone(), locations.clone())),
-        locations,
+        locations.clone(),
     );
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
     let mut debug_view = false;
     let mut debug_chunks = false;
+    let mut debug_layers = false;
 
     loop {
+        if is_key_pressed(KeyCode::F3) {
+            debug_layers = !debug_layers;
+        }
+        if debug_layers {
+            render_debug_layers(vec![
+                locations.debug(),
+                player.highways.debug(),
+                player.roads.debug(),
+            ]);
+            next_frame().await;
+            continue;
+        }
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
             reverse: is_key_down(KeyCode::S),
@@ -676,6 +690,78 @@ async fn main() {
         }
 
         next_frame().await
+    }
+}
+
+fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
+    let mut seen = BTreeMap::new();
+    let mut next_layers = top_layers;
+    for level in 0.. {
+        for layer in std::mem::take(&mut next_layers) {
+            next_layers.extend(layer.deps());
+            seen.entry(layer.ident()).or_insert((level, layer)).0 = level;
+        }
+        if next_layers.is_empty() {
+            break;
+        }
+    }
+    let mut levels = vec![];
+    for (level, layer) in seen.into_values() {
+        if levels.len() < level + 1 {
+            levels.resize(level + 1, vec![]);
+        }
+        levels[level].push(layer);
+    }
+
+    set_default_camera();
+    clear_background(BLACK);
+
+    let mut positions = HashMap::new();
+    let font_size = 15.;
+    let mut pos = vec2(0.0, 0.0);
+    let colors = vec![
+        PURPLE, YELLOW, RED, BLUE, DARKGRAY, GOLD, PINK, DARKGREEN, LIGHTGRAY, DARKPURPLE, GREEN,
+        ORANGE, BROWN, DARKBLUE, GRAY, SKYBLUE, VIOLET, BEIGE, MAROON, LIME, DARKBROWN, WHITE,
+        MAGENTA,
+    ];
+    let mut color = 0;
+    for layers in &levels {
+        pos += 10.;
+        for layer in layers {
+            pos.y += font_size + 10.;
+            pos.x += 10.;
+            let size = draw_text(&layer.name(), pos.x, pos.y, font_size, colors[color]);
+            draw_rectangle_lines(
+                pos.x - 1.,
+                pos.y + 1.,
+                size.width + 2.,
+                -size.height - 1.,
+                1.,
+                colors[color],
+            );
+            positions.insert(layer.ident(), (pos, 3., colors[color]));
+            color += 1;
+            color %= colors.len();
+        }
+    }
+
+    for layers in levels {
+        for layer in layers {
+            let (pos, _, color) = positions[&layer.ident()];
+            for dep in layer.deps() {
+                let (dep_pos, offset, _) = positions.get_mut(&dep.ident()).unwrap();
+                draw_line(pos.x, pos.y, pos.x, dep_pos.y - *offset, 1., color);
+                draw_line(
+                    pos.x,
+                    dep_pos.y - *offset,
+                    dep_pos.x,
+                    dep_pos.y - *offset,
+                    1.,
+                    color,
+                );
+                *offset += 3.;
+            }
+        }
     }
 }
 

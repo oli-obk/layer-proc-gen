@@ -21,6 +21,8 @@ pub mod generic_layers;
 pub trait Dependencies {
     /// The actual `Layer` types corresponding to this tuple of `Chunk` types
     type Layer: Default;
+
+    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer>;
 }
 
 macro_rules! layer {
@@ -29,6 +31,13 @@ macro_rules! layer {
             for ($($t,)*)
         {
             type Layer = ($(Layer<$t>,)*);
+            fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
+                #[allow(non_snake_case)]
+                let ($($t,)*) = deps;
+                vec![
+                    $($t,)*
+                ]
+            }
         }
     };
 }
@@ -135,6 +144,10 @@ impl<C: Chunk> Layer<C> {
 
     pub fn debug(&self) -> &dyn DynLayer {
         self
+    }
+
+    fn debug_deps(&self) -> Vec<&dyn DynLayer> {
+        C::Dependencies::debug(&self.layer.borrow().1)
     }
 }
 
