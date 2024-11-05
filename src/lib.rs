@@ -133,8 +133,8 @@ impl<C: Chunk> Layer<C> {
         })
     }
 
-    pub fn debug(&self) -> Box<dyn DynLayer + '_> {
-        Box::new(self)
+    pub fn debug(&self) -> &dyn DynLayer {
+        self
     }
 }
 

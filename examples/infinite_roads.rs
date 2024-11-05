@@ -620,7 +620,7 @@ async fn main() {
                 draw_multiline_text(&label, pos.x, pos.y, 100., Some(1.), color);
             }
         };
-        let draw_layer_debug = |layer: Box<dyn DynLayer>, color| {
+        let draw_layer_debug = |layer: &dyn DynLayer, color| {
             for (current_chunk, chunk) in layer.iter_all_loaded() {
                 draw_bounds(current_chunk, color);
                 for debug in chunk.render() {

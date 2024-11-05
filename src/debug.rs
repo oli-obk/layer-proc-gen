@@ -35,7 +35,7 @@ pub trait DynLayer {
     ) -> Box<dyn Iterator<Item = (Bounds, Box<dyn DynChunk + 'static>)> + '_>;
 }
 
-impl<C: Chunk> DynLayer for &'_ Layer<C> {
+impl<C: Chunk> DynLayer for Layer<C> {
     fn iter_all_loaded(
         &self,
     ) -> Box<dyn Iterator<Item = (Bounds, Box<dyn DynChunk + 'static>)> + '_> {
