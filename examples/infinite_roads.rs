@@ -1,5 +1,6 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
+use debug::{DebugContent, DynLayer};
 use generic_layers::{rng_for_point, ReducedUniformPoint, Reducible};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
@@ -52,6 +53,19 @@ impl Reducible for City {
 
     fn position(&self) -> Point2d {
         self.center
+    }
+
+    fn debug(&self) -> Vec<DebugContent> {
+        vec![
+            DebugContent::Circle {
+                center: self.center,
+                radius: self.size as f32,
+            },
+            DebugContent::Text {
+                pos: self.center,
+                label: self.name.clone(),
+            },
+        ]
     }
 }
 
@@ -121,6 +135,18 @@ impl Chunk for ReducedLocations {
             }
         }
     }
+
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        self.trees
+            .iter()
+            .map(|&center| DebugContent::Circle { center, radius: 8. })
+            .chain(
+                self.points
+                    .iter()
+                    .map(|&center| DebugContent::Circle { center, radius: 1. }),
+            )
+            .collect()
+    }
 }
 
 #[derive(PartialEq, Debug, Default, Clone)]
@@ -146,6 +172,10 @@ impl Chunk for Roads {
         )
         .into();
         Roads { roads }
+    }
+
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        self.roads.iter().copied().map(DebugContent::from).collect()
     }
 }
 
@@ -279,6 +309,13 @@ impl Chunk for Highways {
         Highways {
             roads: Arc::new(roads),
         }
+    }
+
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        self.roads
+            .iter()
+            .map(|highway| DebugContent::Line(highway.line))
+            .collect()
     }
 }
 
@@ -506,16 +543,6 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        if debug_chunks {
-            for (index, chunk) in player.roads.iter_all_loaded() {
-                let current_chunk = Roads::bounds(index);
-                draw_bounds(current_chunk);
-                for &line in chunk.roads.iter() {
-                    draw_line(line, debug_zoom, DARKPURPLE)
-                }
-            }
-        }
-
         let roads = player.roads(padding);
         let (roads, trees) = &*roads;
         for highway in roads.iter() {
@@ -599,26 +626,34 @@ async fn main() {
             );
         }
 
-        if debug_view {
-            for &road in player
-                .roads
-                .get_or_compute(Roads::pos_to_grid(player.pos()))
-                .roads
-                .iter()
-            {
-                draw_line(road, debug_zoom, PURPLE)
-            }
-            for city in cities
-                .get_or_compute(ReducedUniformPoint::pos_to_grid(player.pos()))
-                .points
-                .iter()
-            {
-                let pos = point2screen(city.center);
-                draw_circle_lines(pos.x, pos.y, city.size as f32, debug_zoom, PURPLE);
-            }
-        }
-
         player.car.draw();
+
+        let draw_debug_content = |debug: DebugContent, thickness, color| match debug {
+            DebugContent::Line(line) => draw_line(line, thickness, color),
+            DebugContent::Circle { center, radius } => {
+                let pos = point2screen(center);
+                draw_circle_lines(pos.x, pos.y, radius, thickness, color)
+            }
+            DebugContent::Text { pos, label } => {
+                let pos = point2screen(pos);
+                draw_multiline_text(&label, pos.x, pos.y, 100., Some(1.), color);
+            }
+        };
+        let draw_layer_debug = |layer: Box<dyn DynLayer>, color| {
+            for (current_chunk, chunk) in layer.iter_all_loaded() {
+                draw_bounds(current_chunk);
+                for debug in chunk.render() {
+                    draw_debug_content(debug, debug_zoom, color)
+                }
+            }
+        };
+
+        if debug_chunks {
+            draw_layer_debug(player.roads.debug(), DARKPURPLE);
+            draw_layer_debug(player.highways.debug(), DARKPURPLE);
+            draw_layer_debug(player.trees.debug(), DARKPURPLE);
+            draw_layer_debug(cities.debug(), DARKPURPLE);
+        }
 
         if debug_view {
             set_camera(&overlay_camera);

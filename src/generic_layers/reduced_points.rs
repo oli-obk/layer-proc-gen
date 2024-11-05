@@ -3,6 +3,7 @@ use std::sync::Arc;
 use arrayvec::ArrayVec;
 
 use crate::{
+    debug::DebugContent,
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
     Chunk, Dependencies,
@@ -14,6 +15,12 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     /// The radius around the thing to be kept free from other things.
     fn radius(&self) -> i64;
     fn position(&self) -> Point2d;
+    fn debug(&self) -> Vec<DebugContent> {
+        vec![DebugContent::Circle {
+            center: self.position(),
+            radius: self.radius() as f32,
+        }]
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -63,5 +70,9 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
             points.push(p);
         }
         ReducedUniformPoint { points }
+    }
+
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        self.points.iter().flat_map(Reducible::debug).collect()
     }
 }

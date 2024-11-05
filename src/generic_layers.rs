@@ -4,6 +4,7 @@ use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
+    debug::DebugContent,
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},
     Chunk,
@@ -43,9 +44,7 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPoint<P, SIZE, SALT>
     }
 }
 
-impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
-    for UniformPoint<P, SIZE, SALT>
-{
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SIZE, SALT> {
     type LayerStore<T> = T;
     type Dependencies = ();
 
@@ -56,6 +55,10 @@ impl<P: From<Point2d> + Clone + 'static, const SIZE: u8, const SALT: u64> Chunk
         Self {
             points: points.map(P::from).collect(),
         }
+    }
+
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        self.points.iter().flat_map(Reducible::debug).collect()
     }
 }
 

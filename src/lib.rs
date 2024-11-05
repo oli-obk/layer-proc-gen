@@ -6,10 +6,12 @@
 
 use std::borrow::Borrow;
 
+use debug::{DebugContent, DynLayer};
 use rolling_grid::{GridIndex, GridPoint, RollingGrid};
 use tracing::{instrument, trace};
 use vec2::{Bounds, Point2d};
 
+pub mod debug;
 pub mod generic_layers;
 
 /// A tuple of `Chunk` types.
@@ -131,10 +133,8 @@ impl<C: Chunk> Layer<C> {
         })
     }
 
-    /// Iterate over all loaded chunks. This should only be used for debugging, as it has
-    /// no defined order of chunks and does not update the chunks' last-used timestamp.
-    pub fn iter_all_loaded(&self) -> impl Iterator<Item = (GridPoint<C>, C)> + '_ {
-        self.layer.borrow().0.iter_all_loaded()
+    pub fn debug(&self) -> Box<dyn DynLayer + '_> {
+        Box::new(self)
     }
 }
 
@@ -185,6 +185,12 @@ pub trait Chunk: Sized + Default + Clone + 'static {
 
     fn default_layer() -> <Self::Dependencies as Dependencies>::Layer {
         Default::default()
+    }
+
+    /// Additional data to show in debug views. Can be left empty to just
+    /// show chunk boundaries.
+    fn debug_contents(&self) -> Vec<DebugContent> {
+        vec![]
     }
 }
 
