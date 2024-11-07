@@ -470,6 +470,9 @@ async fn main() {
     let mut debug_layers = false;
 
     loop {
+        if is_key_pressed(KeyCode::Escape) {
+            return;
+        }
         if is_key_pressed(KeyCode::F3) {
             debug_layers = !debug_layers;
         }
@@ -481,6 +484,14 @@ async fn main() {
             ]);
             next_frame().await;
             continue;
+        }
+        if is_key_pressed(KeyCode::F4) {
+            render_3d_layers(vec![
+                locations.debug(),
+                player.highways.debug(),
+                player.roads.debug(),
+            ])
+            .await;
         }
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
@@ -693,7 +704,120 @@ async fn main() {
     }
 }
 
-fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
+fn point_to_3d(p: Point2d) -> Vec3 {
+    vec3(p.x as f32, p.y as f32, 0.0)
+}
+
+const LOOK_SPEED: f32 = 10.;
+
+async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
+    let levels = layer_levels(top_layers);
+    set_cursor_grab(true);
+    show_mouse(false);
+    let world_up = vec3(0.0, 0.0, 1.0);
+    let mut yaw: f32 = 1.18;
+    let mut pitch: f32 = 0.0;
+
+    let mut front;
+    let mut right;
+    let mut up;
+    loop {
+        if is_key_pressed(KeyCode::Escape) {
+            set_cursor_grab(false);
+            show_mouse(true);
+            return;
+        }
+
+        let delta = get_frame_time();
+        let mouse_delta = mouse_delta_position();
+        yaw += mouse_delta.x * delta * LOOK_SPEED;
+        pitch += mouse_delta.y * delta * LOOK_SPEED;
+
+        pitch = if pitch > 1.5 { 1.5 } else { pitch };
+        pitch = if pitch < -1.5 { -1.5 } else { pitch };
+
+        front = vec3(
+            yaw.cos() * pitch.cos(),
+            yaw.sin() * pitch.cos(),
+            pitch.sin(),
+        )
+        .normalize();
+
+        right = front.cross(world_up).normalize();
+        up = right.cross(front).normalize();
+
+        let position = vec3(2000.0, -2000.0, 2000.);
+        set_camera(&Camera3D {
+            position,
+            up,
+            target: position + front,
+            ..Default::default()
+        });
+        clear_background(BLACK);
+
+        let mut layer_index = 0;
+        for layers in &levels {
+            for layer in layers {
+                for (bounds, chunk) in layer.iter_all_loaded() {
+                    let pos = vec3(0.0, 0.0, layer_index as f32 * -100.);
+                    let color = COLORS[layer_index % COLORS.len()];
+                    let max = point_to_3d(bounds.max) + pos;
+                    let min = point_to_3d(bounds.min) + pos;
+                    draw_line_3d(min, vec3(min.x, max.y, pos.z), color);
+                    draw_line_3d(min, vec3(max.x, min.y, pos.z), color);
+                    draw_line_3d(vec3(max.x, min.y, pos.z), max, color);
+                    draw_line_3d(vec3(min.x, max.y, pos.z), max, color);
+                    for thing in chunk.render() {
+                        match thing {
+                            DebugContent::Line(line) => draw_line_3d(
+                                pos + point_to_3d(line.start),
+                                pos + point_to_3d(line.end),
+                                color,
+                            ),
+                            DebugContent::Circle { center, radius } => {
+                                let center = pos + point_to_3d(center);
+                                let mut x = radius;
+                                let mut y = 0.;
+                                for i in 1..=9 {
+                                    let i = (i as f32 * 10.).to_radians();
+                                    let (y2, x2) = i.sin_cos();
+                                    let x2 = x2 * radius;
+                                    let y2 = y2 * radius;
+                                    draw_line_3d(
+                                        vec3(x, y, 0.) + center,
+                                        vec3(x2, y2, 0.) + center,
+                                        color,
+                                    );
+                                    draw_line_3d(
+                                        vec3(-x, -y, 0.) + center,
+                                        vec3(-x2, -y2, 0.) + center,
+                                        color,
+                                    );
+                                    draw_line_3d(
+                                        vec3(-x, y, 0.) + center,
+                                        vec3(-x2, y2, 0.) + center,
+                                        color,
+                                    );
+                                    draw_line_3d(
+                                        vec3(x, -y, 0.) + center,
+                                        vec3(x2, -y2, 0.) + center,
+                                        color,
+                                    );
+                                    (x, y) = (x2, y2);
+                                }
+                            }
+                            DebugContent::Text { .. } => {}
+                        }
+                    }
+                }
+                layer_index += 1;
+            }
+        }
+        next_frame().await
+    }
+}
+
+fn layer_levels(top_layers: Vec<&dyn DynLayer>) -> Vec<Vec<&dyn DynLayer>> {
     let mut seen = BTreeMap::new();
     let mut next_layers = top_layers;
     for level in 0.. {
@@ -712,6 +836,16 @@ fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
         }
         levels[level].push(layer);
     }
+    levels
+}
+
+const COLORS: [Color; 23] = [
+    PURPLE, YELLOW, RED, BLUE, DARKGRAY, GOLD, PINK, DARKGREEN, LIGHTGRAY, DARKPURPLE, GREEN,
+    ORANGE, BROWN, DARKBLUE, GRAY, SKYBLUE, VIOLET, BEIGE, MAROON, LIME, DARKBROWN, WHITE, MAGENTA,
+];
+
+fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
+    let levels = layer_levels(top_layers);
 
     set_default_camera();
     clear_background(BLACK);
@@ -719,29 +853,24 @@ fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
     let mut positions = HashMap::new();
     let font_size = 15.;
     let mut pos = vec2(0.0, 0.0);
-    let colors = vec![
-        PURPLE, YELLOW, RED, BLUE, DARKGRAY, GOLD, PINK, DARKGREEN, LIGHTGRAY, DARKPURPLE, GREEN,
-        ORANGE, BROWN, DARKBLUE, GRAY, SKYBLUE, VIOLET, BEIGE, MAROON, LIME, DARKBROWN, WHITE,
-        MAGENTA,
-    ];
     let mut color = 0;
     for layers in &levels {
         pos += 10.;
         for layer in layers {
             pos.y += font_size + 10.;
             pos.x += 10.;
-            let size = draw_text(&layer.name(), pos.x, pos.y, font_size, colors[color]);
+            let size = draw_text(&layer.name(), pos.x, pos.y, font_size, COLORS[color]);
             draw_rectangle_lines(
                 pos.x - 1.,
                 pos.y + 1.,
                 size.width + 2.,
                 -size.height - 1.,
                 1.,
-                colors[color],
+                COLORS[color],
             );
-            positions.insert(layer.ident(), (pos, 3., colors[color]));
+            positions.insert(layer.ident(), (pos, 3., COLORS[color]));
             color += 1;
-            color %= colors.len();
+            color %= COLORS.len();
         }
     }
 
