@@ -467,23 +467,18 @@ async fn main() {
     let mut debug_zoom = 1.0;
     let mut debug_view = false;
     let mut debug_chunks = false;
-    let mut debug_layers = false;
 
     loop {
         if is_key_pressed(KeyCode::Escape) {
             return;
         }
         if is_key_pressed(KeyCode::F3) {
-            debug_layers = !debug_layers;
-        }
-        if debug_layers {
             render_debug_layers(vec![
                 locations.debug(),
                 player.highways.debug(),
                 player.roads.debug(),
-            ]);
-            next_frame().await;
-            continue;
+            ])
+            .await;
         }
         if is_key_pressed(KeyCode::F4) {
             render_3d_layers(vec![
@@ -721,13 +716,7 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
     let mut front;
     let mut right;
     let mut up;
-    loop {
-        if is_key_pressed(KeyCode::Escape) {
-            set_cursor_grab(false);
-            show_mouse(true);
-            return;
-        }
-
+    while !is_key_pressed(KeyCode::Escape) {
         let delta = get_frame_time();
         let mouse_delta = mouse_delta_position();
         yaw += mouse_delta.x * delta * LOOK_SPEED;
@@ -815,6 +804,8 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
         }
         next_frame().await
     }
+    set_cursor_grab(false);
+    show_mouse(true);
 }
 
 fn layer_levels(top_layers: Vec<&dyn DynLayer>) -> Vec<Vec<&dyn DynLayer>> {
@@ -844,53 +835,56 @@ const COLORS: [Color; 23] = [
     ORANGE, BROWN, DARKBLUE, GRAY, SKYBLUE, VIOLET, BEIGE, MAROON, LIME, DARKBROWN, WHITE, MAGENTA,
 ];
 
-fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
+async fn render_debug_layers(top_layers: Vec<&dyn DynLayer>) {
     let levels = layer_levels(top_layers);
 
     set_default_camera();
-    clear_background(BLACK);
+    while !is_key_pressed(KeyCode::Escape) {
+        clear_background(BLACK);
 
-    let mut positions = HashMap::new();
-    let font_size = 15.;
-    let mut pos = vec2(0.0, 0.0);
-    let mut color = 0;
-    for layers in &levels {
-        pos += 10.;
-        for layer in layers {
-            pos.y += font_size + 10.;
-            pos.x += 10.;
-            let size = draw_text(&layer.name(), pos.x, pos.y, font_size, COLORS[color]);
-            draw_rectangle_lines(
-                pos.x - 1.,
-                pos.y + 1.,
-                size.width + 2.,
-                -size.height - 1.,
-                1.,
-                COLORS[color],
-            );
-            positions.insert(layer.ident(), (pos, 3., COLORS[color]));
-            color += 1;
-            color %= COLORS.len();
-        }
-    }
-
-    for layers in levels {
-        for layer in layers {
-            let (pos, _, color) = positions[&layer.ident()];
-            for dep in layer.deps() {
-                let (dep_pos, offset, _) = positions.get_mut(&dep.ident()).unwrap();
-                draw_line(pos.x, pos.y, pos.x, dep_pos.y - *offset, 1., color);
-                draw_line(
-                    pos.x,
-                    dep_pos.y - *offset,
-                    dep_pos.x,
-                    dep_pos.y - *offset,
+        let mut positions = HashMap::new();
+        let font_size = 15.;
+        let mut pos = vec2(0.0, 0.0);
+        let mut color = 0;
+        for layers in &levels {
+            pos += 10.;
+            for layer in layers {
+                pos.y += font_size + 10.;
+                pos.x += 10.;
+                let size = draw_text(&layer.name(), pos.x, pos.y, font_size, COLORS[color]);
+                draw_rectangle_lines(
+                    pos.x - 1.,
+                    pos.y + 1.,
+                    size.width + 2.,
+                    -size.height - 1.,
                     1.,
-                    color,
+                    COLORS[color],
                 );
-                *offset += 3.;
+                positions.insert(layer.ident(), (pos, 3., COLORS[color]));
+                color += 1;
+                color %= COLORS.len();
             }
         }
+
+        for layers in &levels {
+            for layer in layers {
+                let (pos, _, color) = positions[&layer.ident()];
+                for dep in layer.deps() {
+                    let (dep_pos, offset, _) = positions.get_mut(&dep.ident()).unwrap();
+                    draw_line(pos.x, pos.y, pos.x, dep_pos.y - *offset, 1., color);
+                    draw_line(
+                        pos.x,
+                        dep_pos.y - *offset,
+                        dep_pos.x,
+                        dep_pos.y - *offset,
+                        1.,
+                        color,
+                    );
+                    *offset += 3.;
+                }
+            }
+        }
+        next_frame().await
     }
 }
 
