@@ -119,67 +119,63 @@ impl Line {
 
 impl<T: Num> Line<T> {
     /// Iterate over all pixes that are touched by this line.
-    pub fn iter_all_touched_pixels(self, mut pnt: impl FnMut(T, T)) {
+    pub fn iter_all_touched_pixels(mut self, mut pnt: impl FnMut(T, T)) {
         // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
-        let mut x0 = self.start.x;
-        let mut y0 = self.start.y;
-        let mut x1 = self.end.x;
-        let mut y1 = self.end.y;
         let mut kx;
         let mut ky;
-        x1 -= x0;
+        self.end.x -= self.start.x;
         kx = T::ZERO;
-        if x1 > T::ZERO {
+        if self.end.x > T::ZERO {
             kx = T::ONE;
         }
-        if x1 < T::ZERO {
+        if self.end.x < T::ZERO {
             kx = -T::ONE;
-            x1 = -x1;
+            self.end.x = -self.end.x;
         }
-        x1 += T::ONE;
-        y1 -= y0;
+        self.end.x += T::ONE;
+        self.end.y -= self.start.y;
         ky = T::ZERO;
-        if y1 > T::ZERO {
+        if self.end.y > T::ZERO {
             ky = T::ONE;
         }
-        if y1 < T::ZERO {
+        if self.end.y < T::ZERO {
             ky = -T::ONE;
-            y1 = -y1;
+            self.end.y = -self.end.y;
         }
-        y1 += T::ONE;
-        if x1 >= y1 {
-            let mut c = x1;
-            for i in T::iter_range(T::ZERO..x1) {
-                pnt(x0, y0); // this is normal pixel the two below are subpixels
-                c -= y1;
+        self.end.y += T::ONE;
+        if self.end.x >= self.end.y {
+            let mut c = self.end.x;
+            for i in T::iter_range(T::ZERO..self.end.x) {
+                pnt(self.start.x, self.start.y); // this is normal pixel the two below are subpixels
+                c -= self.end.y;
                 if c <= T::ZERO {
-                    if i != x1 - T::ONE {
-                        pnt(x0 + kx, y0)
+                    if i != self.end.x - T::ONE {
+                        pnt(self.start.x + kx, self.start.y)
                     };
-                    c += x1;
-                    y0 += ky;
-                    if i != x1 - T::ONE {
-                        pnt(x0, y0);
+                    c += self.end.x;
+                    self.start.y += ky;
+                    if i != self.end.x - T::ONE {
+                        pnt(self.start.x, self.start.y);
                     }
                 }
-                x0 += kx
+                self.start.x += kx
             }
         } else {
-            let mut c = y1;
-            for i in T::iter_range(T::ZERO..y1) {
-                pnt(x0, y0); // this is normal pixel the two below are subpixels
-                c -= x1;
+            let mut c = self.end.y;
+            for i in T::iter_range(T::ZERO..self.end.y) {
+                pnt(self.start.x, self.start.y); // this is normal pixel the two below are subpixels
+                c -= self.end.x;
                 if c <= T::ZERO {
-                    if i != y1 - T::ONE {
-                        pnt(x0, y0 + ky);
+                    if i != self.end.y - T::ONE {
+                        pnt(self.start.x, self.start.y + ky);
                     }
-                    c += y1;
-                    x0 += kx;
-                    if i != y1 - T::ONE {
-                        pnt(x0, y0);
+                    c += self.end.y;
+                    self.start.x += kx;
+                    if i != self.end.y - T::ONE {
+                        pnt(self.start.x, self.start.y);
                     }
                 }
-                y0 += ky
+                self.start.y += ky
             }
         }
     }
