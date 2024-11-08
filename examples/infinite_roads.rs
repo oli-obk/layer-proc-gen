@@ -758,11 +758,11 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
         if is_key_down(KeyCode::E) {
             position -= up * delta * MOVE_SPEED;
         }
-        if is_key_pressed(KeyCode::Up) {
+        if is_key_pressed(KeyCode::R) {
             // Always show the topmost layer
             max_level = (max_level - 1).max(1);
         }
-        if is_key_pressed(KeyCode::Down) {
+        if is_key_pressed(KeyCode::F) {
             max_level = levels.len().min(max_level + 1);
         }
 
