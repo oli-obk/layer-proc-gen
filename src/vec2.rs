@@ -122,7 +122,7 @@ impl<T: Num> Line<T> {
     pub fn iter_all_touched_pixels(mut self, mut pnt: impl FnMut(T, T)) {
         // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
         let mut k = Point2d::splat(T::ZERO);
-        self.end.x -= self.start.x;
+        self.end -= self.start;
         if self.end.x > T::ZERO {
             k.x = T::ONE;
         }
@@ -131,7 +131,6 @@ impl<T: Num> Line<T> {
             self.end.x = -self.end.x;
         }
         self.end.x += T::ONE;
-        self.end.y -= self.start.y;
         if self.end.y > T::ZERO {
             k.y = T::ONE;
         }
