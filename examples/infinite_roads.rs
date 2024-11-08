@@ -780,10 +780,12 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
                 let color = COLORS[layer_index % COLORS.len()];
                 let max = point_to_3d(bounds.max) + pos;
                 let min = point_to_3d(bounds.min) + pos;
-                draw_line_3d(min, vec3(min.x, max.y, pos.z), color);
-                draw_line_3d(min, vec3(max.x, min.y, pos.z), color);
-                draw_line_3d(vec3(max.x, min.y, pos.z), max, color);
-                draw_line_3d(vec3(min.x, max.y, pos.z), max, color);
+                let mut border_color = color;
+                border_color.a = 0.2;
+                draw_line_3d(min, vec3(min.x, max.y, pos.z), border_color);
+                draw_line_3d(min, vec3(max.x, min.y, pos.z), border_color);
+                draw_line_3d(vec3(max.x, min.y, pos.z), max, border_color);
+                draw_line_3d(vec3(min.x, max.y, pos.z), max, border_color);
                 for thing in chunk.render() {
                     match thing {
                         DebugContent::Line(line) => draw_line_3d(
