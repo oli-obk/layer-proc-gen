@@ -1,3 +1,5 @@
+//! Various position related data structures for 2d integer position handling.
+
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use rand::{
     distributions::{
@@ -11,6 +13,8 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+/// A 2d point where you can choose the type and thus precision of the x and y indices.
+/// By default uses [i64] which is the world coordinate type.
 #[derive(
     Copy,
     Clone,
@@ -33,17 +37,23 @@ use std::{
 #[mul_assign(forward)]
 #[div_assign(forward)]
 pub struct Point2d<T = i64> {
+    /// `x` position
     pub x: T,
+    /// `y` position
     pub y: T,
 }
 
+/// A line segment with a direction.
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Line<T = i64> {
+    /// The start of the line segment.
     pub start: Point2d<T>,
+    /// The end of the line segment.
     pub end: Point2d<T>,
 }
 
 impl Line {
+    /// Returns a point where two line segments intersect (if any).
     // impl from https://stackoverflow.com/a/14795484
     pub fn get_intersection(self, other: Self) -> Option<Point2d> {
         let s10 = self.end - self.start;
@@ -73,6 +83,7 @@ impl Line {
         Some(self.start + s10 * t)
     }
 
+    /// Create bounds where this line is the diagonal of.
     pub fn bounds(&self) -> Bounds {
         Bounds {
             min: self.start,
@@ -80,6 +91,7 @@ impl Line {
         }
     }
 
+    /// Shorten the line to make its manhattan length the given one.
     pub fn with_manhattan_length(self, len: i64) -> Self {
         assert!(len > 0);
         let dir = self.end - self.start;
@@ -91,6 +103,7 @@ impl Line {
         }
     }
 
+    /// Swap the end and the start.
     pub fn flip(self) -> Self {
         Self {
             start: self.end,
@@ -98,12 +111,14 @@ impl Line {
         }
     }
 
+    /// Compute the square of the length.
     pub fn len_squared(&self) -> i64 {
         (self.end - self.start).len_squared()
     }
 }
 
 impl<T: Num> Line<T> {
+    /// Iterate over all pixes that are touched by this line.
     pub fn iter_all_touched_pixels(self, mut pnt: impl FnMut(T, T)) {
         // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
         let mut x0 = self.start.x;
@@ -207,6 +222,7 @@ impl<T: Copy> Point2d<T> {
         }
     }
 
+    /// Connect a line segment from this point to the argument.
     pub fn to(self, other: Self) -> Line<T> {
         Line {
             start: self,
@@ -216,6 +232,7 @@ impl<T: Copy> Point2d<T> {
 }
 
 impl<T: Neg<Output = T>> Point2d<T> {
+    /// Return the perpendicular (right facing) vector of the same length.
     pub fn perp(self) -> Self {
         Self {
             x: -self.y,
@@ -224,7 +241,10 @@ impl<T: Neg<Output = T>> Point2d<T> {
     }
 }
 
+/// Helper trait for computing absolute values of generic types.
 pub trait Abs {
+    /// Compute the absolute value of this type.
+    /// No-op if the value is alread positive.
     fn abs(self) -> Self;
 }
 
@@ -235,20 +255,24 @@ impl Abs for i64 {
 }
 
 impl<T: Copy + Sub<Output = T> + Mul<Output = T> + Add<Output = T> + Abs> Point2d<T> {
+    /// The square of the distance between two points
     pub fn dist_squared(self, center: Point2d<T>) -> T {
         (self - center).len_squared()
     }
 
+    /// The square of the distance between the origin (`0, 0`) and this point.
     pub fn len_squared(self) -> T {
         let Self { x, y } = self;
         x * x + y * y
     }
 
+    /// The manhattan distance between two points.
     pub fn manhattan_dist(self, city: Point2d<T>) -> T {
         let diff = city - self;
         diff.manhattan_len()
     }
 
+    /// The manhattan distance to the origin.
     pub fn manhattan_len(&self) -> T {
         self.x.abs() + self.y.abs()
     }
@@ -264,18 +288,21 @@ impl From<Point2d<NonZeroU16>> for Point2d {
 }
 
 impl Point2d<i64> {
+    /// Subtract two points element wise.
     pub const fn sub(mut self, rhs: Point2d) -> Point2d {
         self.x -= rhs.x;
         self.y -= rhs.y;
         self
     }
 
+    /// Multiply two points element wise.
     pub const fn mul(mut self, rhs: Point2d) -> Point2d {
         self.x *= rhs.x;
         self.y *= rhs.y;
         self
     }
 
+    /// Get the bytes of this point in native byte order.
     pub fn to_ne_bytes(&self) -> [u8; 16] {
         let mut array = [0; 16];
         for (dest, src) in array
@@ -321,7 +348,9 @@ impl<T: MulAssign + Copy> MulAssign<T> for Point2d<T> {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// A rectangle that includes the minimum and maximum values
 pub struct Bounds<T = i64> {
+    /// The corner closest to the origin.
     pub min: Point2d<T>,
+    /// The corner furthest away from the origin.
     pub max: Point2d<T>,
 }
 
@@ -332,6 +361,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Bounds<T> {
 }
 
 impl<T: Copy + PartialEq + PartialOrd + SampleUniform> Bounds<T> {
+    /// Generate a point within the bounds.
     pub fn sample<R: RngCore + ?Sized>(self, rng: &mut R) -> Point2d<T> {
         Point2d {
             x: (self.min.x..self.max.x).sample_single(rng),
@@ -349,6 +379,7 @@ impl<T: Copy + PartialEq + PartialOrd + SampleUniform> Bounds<T> {
 }
 
 impl<T: Copy> Bounds<T> {
+    /// Bounds at a single point with zero width and height.
     pub fn point(point: Point2d<T>) -> Self {
         Self {
             min: point,
@@ -358,6 +389,7 @@ impl<T: Copy> Bounds<T> {
 }
 
 impl<T: PartialOrd + Num + Copy + AddAssign> Bounds<T> {
+    /// Iterate over all integer points within these bounds.
     pub fn iter(self) -> impl Iterator<Item = Point2d<T>> {
         let mut current = self.min;
         std::iter::from_fn(move || {
@@ -377,6 +409,7 @@ impl<T: PartialOrd + Num + Copy + AddAssign> Bounds<T> {
 }
 
 impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> Bounds<T> {
+    /// The middle point of these bounds.
     pub fn center(&self) -> Point2d<T> {
         (self.max - self.min) / T::TWO + self.min
     }
@@ -429,6 +462,7 @@ impl<T: DivAssign + Copy> Div<Point2d<T>> for Bounds<T> {
     }
 }
 
+/// A helper trait for specifying generic numeric types.
 pub trait Num:
     Sized
     + Copy
@@ -440,10 +474,17 @@ pub trait Num:
     + Eq
     + Add<Output = Self>
 {
+    /// The neutral value for addition and subtraction.
     const ZERO: Self;
+    /// The neutral value for multiplication and division.
     const ONE: Self;
+    /// For when you can't use `+` in const contexts, but need a `2`
     const TWO: Self;
+    /// Iterate over a range. Workaround to [std::ops::Range]'s [Iterator] impl
+    /// not being implementable for custom types.
     fn iter_range(range: std::ops::Range<Self>) -> impl Iterator<Item = Self>;
+    /// Convert the value to a [u64]. Used for seeding random number generators
+    /// from coordinates.
     fn as_u64(self) -> u64;
 }
 

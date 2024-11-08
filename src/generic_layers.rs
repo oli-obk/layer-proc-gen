@@ -33,6 +33,8 @@ fn poisson_1(val: f32) -> u8 {
 /// a random number generator salt for picking different points
 /// even for the same chunk coordinates.
 pub struct UniformPoint<P, const SIZE: u8, const SALT: u64> {
+    /// The actual points. Can be up to 7, as a poisson distribution of one point
+    /// per chunk has a negligible probability for more than 7 points.
     pub points: ArrayVec<P, 7>,
 }
 

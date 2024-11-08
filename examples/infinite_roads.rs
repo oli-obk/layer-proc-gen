@@ -16,7 +16,6 @@ use std::{
 
 use layer_proc_gen::*;
 use rigid2d::Body;
-use rolling_grid::{GridIndex, GridPoint};
 use vec2::{Bounds, Line, Point2d};
 
 #[path = "../tests/tracing.rs"]

@@ -11,10 +11,15 @@ use crate::{
 
 use super::UniformPoint;
 
+/// Represents point like types that do not want to be close to other types.
+/// The larger of two objects is kept if they are too close to each other.
 pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     /// The radius around the thing to be kept free from other things.
     fn radius(&self) -> i64;
+    /// Center position of the circle to keep free of other things.
     fn position(&self) -> Point2d;
+    /// Debug representation. Usually contains just a single thing, the item itself,
+    /// but can be overriden to emit addition information.
     fn debug(&self) -> Vec<DebugContent> {
         vec![DebugContent::Circle {
             center: self.position(),
@@ -26,6 +31,7 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
 #[derive(PartialEq, Debug, Clone)]
 /// Removes locations that are too close to others.
 pub struct ReducedUniformPoint<P, const SIZE: u8, const SALT: u64> {
+    /// The points remaining after removing ones that are too close to others.
     pub points: ArrayVec<P, 7>,
 }
 

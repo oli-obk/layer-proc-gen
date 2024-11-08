@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use layer_proc_gen::*;
-use rolling_grid::{GridIndex, GridPoint};
 use vec2::{Bounds, Point2d};
 
 mod tracing;

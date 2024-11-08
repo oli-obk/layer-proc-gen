@@ -9,6 +9,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+/// The x and y positions of a chunk in the number of chunks, not in world coordinates.
 pub type GridPoint<C> = crate::vec2::Point2d<GridIndex<C>>;
 
 // TODO: avoid the box when generic const exprs allow for it
@@ -34,6 +35,7 @@ impl<C: Chunk> Default for RollingGrid<C> {
     }
 }
 
+/// An x or y index in chunk coordinates, not world coordinates.
 pub struct GridIndex<C>(pub i64, PhantomData<C>);
 
 impl<C> Abs for GridIndex<C> {
@@ -137,6 +139,10 @@ impl<C> Clone for GridIndex<C> {
 }
 
 impl<C> GridIndex<C> {
+    /// Create a [GridIndex] for any chunk.
+    /// Useful if you are doing some custom math to convert from a
+    /// [Chunk]'s coordinates to another [Chunk]'s coordinates without
+    /// going through world coordinates.
     pub const fn from_raw(i: i64) -> Self {
         Self(i, PhantomData)
     }
@@ -188,6 +194,8 @@ impl<C> DivAssign<i64> for GridIndex<C> {
 }
 
 impl<C: Chunk> GridPoint<C> {
+    /// When two [Chunk]s have the same size, all their coordinates are trivially
+    /// the same and we can convert them with just a compile-time check.
     pub fn into_same_chunk_size<D: Chunk>(self) -> GridPoint<D> {
         const { assert!(C::SIZE.x == D::SIZE.x && C::SIZE.y == D::SIZE.y) };
         GridPoint {

@@ -1,27 +1,71 @@
-//! A Rust implementation of https://github.com/runevision/LayerProcGen
+//! A Rust implementation of <https://github.com/runevision/LayerProcGen>
 //!
-//! You implement pairs of layers and chunks, e.g. ExampleLayer and ExampleChunk. A layer contains chunks of the corresponding type.
+//! The main entry point to access the data of layers is the [Layer] type.
+//!
+//! To create your own layers, you need to define a data type for the [Chunk]s of
+//! that layer, and implement the [Chunk] trait for it. This trait also allows you
+//! to specify other [Chunk] types whose layers you'll need information from to generate
+//! the data of your own chunks.
+//!
+//! All coordinates are integer based (chunk position and borders), but the data within your
+//! chunks can be of arbitrary data types, including floats, strings, etc.
+//!
+//! As an example, here's a layer that generates a point at its center:
+//!
+//! ```rust
+//! use layer_proc_gen::{Chunk, GridPoint, Point2d};
+//!
+//! #[derive(Clone, Default)]
+//! struct MyChunk {
+//!     center: Point2d,
+//! }
+//!
+//! impl Chunk for MyChunk {
+//!     type LayerStore<T> = std::sync::Arc<T>;
+//!     type Dependencies = ();
+//!     fn compute(&(): &(), index: GridPoint<Self>) -> Self {
+//!         let center = Self::bounds(index).center();
+//!         MyChunk { center }
+//!     }
+//! }
+//! ```
+//!
+//! There are builtin [Chunk] types for common patterns like generating uniformly
+//! distributed points on an infinite grid.
 
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+#![deny(missing_docs)]
 
 use std::borrow::Borrow;
 
 use debug::{DebugContent, DynLayer};
-use rolling_grid::{GridIndex, GridPoint, RollingGrid};
+use rolling_grid::RollingGrid;
+pub use rolling_grid::{GridIndex, GridPoint};
 use tracing::{instrument, trace};
-use vec2::{Bounds, Point2d};
+pub use vec2::{Bounds, Point2d};
 
 pub mod debug;
 pub mod generic_layers;
 
-/// A tuple of `Chunk` types.
+/// A list of [Chunk] types.
 ///
-/// Used to represent the `Chunk` types that a `Layer` depends on for computing
+/// Used to represent the [Chunk] types that a [Layer] depends on for computing
 /// its own chunks.
+///
+/// When you have 3 or less dependencies, using a tuple is convenient, but for more
+/// dependencies, explicitly giving them names is better, so you need to implement this
+/// trait for your own dependency struct.
+///
+/// This is also useful if you have non-layer dependencies that you want to specify (e.g. for
+/// loading things from files or the network, or generating them in a non-chunk-based way).
 pub trait Dependencies {
-    /// The actual `Layer` types corresponding to this tuple of `Chunk` types
+    /// The actual `Layer` types corresponding to this tuple of [Chunk] types.
+    /// Can be of any type, completely disconnected from the type implementing [Dependencies]
+    /// (which can just be a ZST). It is the type of the first argument of [Chunk::compute].
     type Layer: Default;
 
+    /// For runtime debugging of your layers, you should return references to each of the
+    /// layer types within your dependencies.
     fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer>;
 }
 
@@ -53,20 +97,25 @@ macro_rules! layers {
 
 layers!(=> T, U, V,);
 
-/// Actual way to access dependency layers. Handles generating and fetching the right blocks.
+/// The entry point to access the chunks of a layer.
+/// It exposes various convenience accessors, like iterating over areas in
+/// chunk or world coordinates.
 pub struct Layer<C: Chunk> {
     layer: Store<C>,
 }
 
 impl<C: Chunk> Default for Layer<C> {
+    /// Create an entirely new layer and its dependencies.
+    /// The dependencies will not be connected to any other dependencies
+    /// of the same type.
     fn default() -> Self {
-        Self {
-            layer: Store::<C>::from(Default::default()),
-        }
+        Self::new(Default::default())
     }
 }
 
 impl<C: Chunk> Layer<C> {
+    /// Create a new layer, manually specifying the dependencies.
+    /// This is useful if you want to share dependencies with another layer.
     pub fn new(value: <C::Dependencies as Dependencies>::Layer) -> Self {
         Layer {
             layer: Store::<C>::from((RollingGrid::default(), value)),
@@ -78,6 +127,8 @@ impl<C: Chunk> Clone for Layer<C>
 where
     Store<C>: Clone,
 {
+    /// Shallowly clone the layer. The clones will share the caches with this
+    /// copy of the layer.
     fn clone(&self) -> Self {
         Self {
             layer: self.layer.clone(),
@@ -142,6 +193,7 @@ impl<C: Chunk> Layer<C> {
         })
     }
 
+    /// Convenience method for creating a dyn reference of a [Layer].
     pub fn debug(&self) -> &dyn DynLayer {
         self
     }
@@ -196,6 +248,7 @@ pub trait Chunk: Sized + Default + Clone + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
+    /// Convenience helper to create a `Layer<Self>`.
     fn default_layer() -> <Self::Dependencies as Dependencies>::Layer {
         Default::default()
     }
@@ -207,5 +260,5 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     }
 }
 
-pub mod rolling_grid;
+mod rolling_grid;
 pub mod vec2;

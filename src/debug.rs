@@ -8,7 +8,9 @@ use crate::{
     Chunk, Layer,
 };
 
+/// Runtime representation of any chunk type.
 pub trait DynChunk {
+    /// Render the elements of this chunk type.
     fn render(&self) -> Vec<DebugContent>;
 }
 
@@ -18,10 +20,24 @@ impl<C: Chunk> DynChunk for C {
     }
 }
 
+/// An debug element of a chunk
 pub enum DebugContent {
+    /// A line.
     Line(Line),
-    Circle { center: Point2d, radius: f32 },
-    Text { pos: Point2d, label: String },
+    /// A unfilled circle.
+    Circle {
+        /// Center position of the circle
+        center: Point2d,
+        /// Radius of the circle
+        radius: f32,
+    },
+    /// A Label.
+    Text {
+        /// Left bottom position of the first line of the text.
+        pos: Point2d,
+        /// Actual message of the text (can have newlines).
+        label: String,
+    },
 }
 
 impl From<Line> for DebugContent {
@@ -30,13 +46,22 @@ impl From<Line> for DebugContent {
     }
 }
 
+/// Can point to any layer and allows programatic access to dependencies and chunks.
+/// Implemented for [Layer]. You should implement this if you manually implement [Dependencies](super::Dependencies).
 pub trait DynLayer {
+    /// Iterate only over the chunks that have been generated already and not unloaded yet
+    /// to make space for new ones.
     fn iter_all_loaded(
         &self,
     ) -> Box<dyn Iterator<Item = (Bounds, Box<dyn DynChunk + 'static>)> + '_>;
 
+    /// Iterate over the dependency layers of this layer.
     fn deps(&self) -> Vec<&dyn DynLayer>;
+
+    /// A unique identifier for this layer, useful for the use as map keys.
     fn ident(&self) -> (usize, TypeId);
+
+    /// A shortened version of the type name of the layer and its generic parameters.
     fn name(&self) -> String;
 }
 
