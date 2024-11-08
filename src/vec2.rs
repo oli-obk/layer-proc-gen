@@ -123,56 +123,49 @@ impl<T: Num> Line<T> {
         // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
         let mut k = Point2d::splat(T::ZERO);
         self.end -= self.start;
+
+        // Pick x direction and step magnitude
         if self.end.x > T::ZERO {
             k.x = T::ONE;
-        }
-        if self.end.x < T::ZERO {
+        } else if self.end.x < T::ZERO {
             k.x = -T::ONE;
             self.end.x = -self.end.x;
         }
         self.end.x += T::ONE;
+
+        // Pick y direction and step magnitude
         if self.end.y > T::ZERO {
             k.y = T::ONE;
-        }
-        if self.end.y < T::ZERO {
+        } else if self.end.y < T::ZERO {
             k.y = -T::ONE;
             self.end.y = -self.end.y;
         }
         self.end.y += T::ONE;
-        if self.end.x >= self.end.y {
-            let mut c = self.end.x;
-            for i in T::iter_range(T::ZERO..self.end.x) {
-                pnt(self.start); // this is normal pixel the two below are subpixels
-                c -= self.end.y;
-                if c <= T::ZERO {
-                    if i != self.end.x - T::ONE {
-                        pnt(self.start + Point2d::new(k.x, T::ZERO))
-                    };
-                    c += self.end.x;
-                    self.start.y += k.y;
-                    if i != self.end.x - T::ONE {
-                        pnt(self.start);
-                    }
+
+        // Move in the dimension that steps by more than 1 per step
+        let flip = self.end.x >= self.end.y;
+        if flip {
+            self.end = self.end.flip();
+            self.start = self.start.flip();
+            k = k.flip();
+        }
+        let mut pnt = |p: Point2d<T>| if flip { pnt(p.flip()) } else { pnt(p) };
+
+        let mut c = self.end.y;
+        for i in T::iter_range(T::ZERO..self.end.y) {
+            pnt(self.start); // this is normal pixel the two below are subpixels
+            c -= self.end.x;
+            if c <= T::ZERO {
+                if i != self.end.y - T::ONE {
+                    pnt(self.start + Point2d::new(T::ZERO, k.y));
                 }
-                self.start.x += k.x
-            }
-        } else {
-            let mut c = self.end.y;
-            for i in T::iter_range(T::ZERO..self.end.y) {
-                pnt(self.start); // this is normal pixel the two below are subpixels
-                c -= self.end.x;
-                if c <= T::ZERO {
-                    if i != self.end.y - T::ONE {
-                        pnt(self.start + Point2d::new(T::ZERO, k.y));
-                    }
-                    c += self.end.y;
-                    self.start.x += k.x;
-                    if i != self.end.y - T::ONE {
-                        pnt(self.start);
-                    }
+                c += self.end.y;
+                self.start.x += k.x;
+                if i != self.end.y - T::ONE {
+                    pnt(self.start);
                 }
-                self.start.y += k.y
             }
+            self.start.y += k.y
         }
     }
 }
@@ -219,6 +212,13 @@ impl<T: Copy> Point2d<T> {
         Line {
             start: self,
             end: other,
+        }
+    }
+
+    fn flip(self) -> Point2d<T> {
+        Point2d {
+            x: self.y,
+            y: self.x,
         }
     }
 }
