@@ -704,6 +704,7 @@ fn point_to_3d(p: Point2d) -> Vec3 {
 }
 
 const LOOK_SPEED: f32 = 10.;
+const MOVE_SPEED: f32 = 1000.;
 
 async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
     let levels = layer_levels(top_layers);
@@ -716,6 +717,9 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
     let mut front;
     let mut right;
     let mut up;
+
+    let mut position = vec3(2000.0, -2000.0, 2000.);
+
     while !is_key_pressed(KeyCode::Escape) {
         let delta = get_frame_time();
         let mouse_delta = mouse_delta_position();
@@ -735,7 +739,25 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
         right = front.cross(world_up).normalize();
         up = right.cross(front).normalize();
 
-        let position = vec3(2000.0, -2000.0, 2000.);
+        if is_key_down(KeyCode::W) {
+            position += front * delta * MOVE_SPEED;
+        }
+        if is_key_down(KeyCode::S) {
+            position -= front * delta * MOVE_SPEED;
+        }
+        if is_key_down(KeyCode::D) {
+            position += right * delta * MOVE_SPEED;
+        }
+        if is_key_down(KeyCode::A) {
+            position -= right * delta * MOVE_SPEED;
+        }
+        if is_key_down(KeyCode::Q) {
+            position += up * delta * MOVE_SPEED;
+        }
+        if is_key_down(KeyCode::E) {
+            position -= up * delta * MOVE_SPEED;
+        }
+
         set_camera(&Camera3D {
             position,
             up,

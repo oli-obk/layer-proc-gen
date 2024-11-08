@@ -73,6 +73,20 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
     }
 
     fn debug_contents(&self) -> Vec<DebugContent> {
-        self.points.iter().flat_map(Reducible::debug).collect()
+        self.points
+            .iter()
+            .flat_map(|p| {
+                let mut debug = p.debug();
+                for debug in &mut debug {
+                    // After reducing, the radius is irrelevant and it is nicer to represent it as a point.
+                    match debug {
+                        DebugContent::Line(..) => {}
+                        DebugContent::Circle { radius, .. } => *radius = 1.,
+                        DebugContent::Text { .. } => {}
+                    }
+                }
+                debug
+            })
+            .collect()
     }
 }
