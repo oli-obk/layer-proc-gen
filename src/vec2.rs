@@ -119,7 +119,7 @@ impl Line {
 
 impl<T: Num> Line<T> {
     /// Iterate over all pixes that are touched by this line.
-    pub fn iter_all_touched_pixels(mut self, mut pnt: impl FnMut(T, T)) {
+    pub fn iter_all_touched_pixels(mut self, mut pnt: impl FnMut(Point2d<T>)) {
         // https://makemeengr.com/precise-subpixel-line-drawing-algorithm-rasterization-algorithm/
         let mut k = Point2d::splat(T::ZERO);
         self.end -= self.start;
@@ -142,16 +142,16 @@ impl<T: Num> Line<T> {
         if self.end.x >= self.end.y {
             let mut c = self.end.x;
             for i in T::iter_range(T::ZERO..self.end.x) {
-                pnt(self.start.x, self.start.y); // this is normal pixel the two below are subpixels
+                pnt(self.start); // this is normal pixel the two below are subpixels
                 c -= self.end.y;
                 if c <= T::ZERO {
                     if i != self.end.x - T::ONE {
-                        pnt(self.start.x + k.x, self.start.y)
+                        pnt(self.start + Point2d::new(k.x, T::ZERO))
                     };
                     c += self.end.x;
                     self.start.y += k.y;
                     if i != self.end.x - T::ONE {
-                        pnt(self.start.x, self.start.y);
+                        pnt(self.start);
                     }
                 }
                 self.start.x += k.x
@@ -159,16 +159,16 @@ impl<T: Num> Line<T> {
         } else {
             let mut c = self.end.y;
             for i in T::iter_range(T::ZERO..self.end.y) {
-                pnt(self.start.x, self.start.y); // this is normal pixel the two below are subpixels
+                pnt(self.start); // this is normal pixel the two below are subpixels
                 c -= self.end.x;
                 if c <= T::ZERO {
                     if i != self.end.y - T::ONE {
-                        pnt(self.start.x, self.start.y + k.y);
+                        pnt(self.start + Point2d::new(T::ZERO, k.y));
                     }
                     c += self.end.y;
                     self.start.x += k.x;
                     if i != self.end.y - T::ONE {
-                        pnt(self.start.x, self.start.y);
+                        pnt(self.start);
                     }
                 }
                 self.start.y += k.y

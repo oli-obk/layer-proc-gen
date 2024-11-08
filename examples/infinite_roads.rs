@@ -280,8 +280,7 @@ impl Chunk for Highways {
                     let mut closest = None;
                     Chunk::pos_to_grid(p)
                         .to(Chunk::pos_to_grid(start))
-                        .iter_all_touched_pixels(|x, y| {
-                            let index = Point2d::new(x, y);
+                        .iter_all_touched_pixels(|index| {
                             closest = locations
                                 .get_or_compute(index)
                                 .points
