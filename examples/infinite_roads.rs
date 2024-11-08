@@ -707,7 +707,7 @@ const LOOK_SPEED: f32 = 10.;
 const MOVE_SPEED: f32 = 1000.;
 
 async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
-    let levels = layer_levels(top_layers);
+    let levels = layer_levels(top_layers).concat();
     set_cursor_grab(true);
     show_mouse(false);
     let world_up = vec3(0.0, 0.0, 1.0);
@@ -719,6 +719,7 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
     let mut up;
 
     let mut position = vec3(2000.0, -2000.0, 2000.);
+    let mut max_level = levels.len();
 
     while !is_key_pressed(KeyCode::Escape) {
         let delta = get_frame_time();
@@ -757,6 +758,13 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
         if is_key_down(KeyCode::E) {
             position -= up * delta * MOVE_SPEED;
         }
+        if is_key_pressed(KeyCode::Up) {
+            // Always show the topmost layer
+            max_level = (max_level - 1).max(1);
+        }
+        if is_key_pressed(KeyCode::Down) {
+            max_level = levels.len().min(max_level + 1);
+        }
 
         set_camera(&Camera3D {
             position,
@@ -766,62 +774,58 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
         });
         clear_background(BLACK);
 
-        let mut layer_index = 0;
-        for layers in &levels {
-            for layer in layers {
-                for (bounds, chunk) in layer.iter_all_loaded() {
-                    let pos = vec3(0.0, 0.0, layer_index as f32 * -100.);
-                    let color = COLORS[layer_index % COLORS.len()];
-                    let max = point_to_3d(bounds.max) + pos;
-                    let min = point_to_3d(bounds.min) + pos;
-                    draw_line_3d(min, vec3(min.x, max.y, pos.z), color);
-                    draw_line_3d(min, vec3(max.x, min.y, pos.z), color);
-                    draw_line_3d(vec3(max.x, min.y, pos.z), max, color);
-                    draw_line_3d(vec3(min.x, max.y, pos.z), max, color);
-                    for thing in chunk.render() {
-                        match thing {
-                            DebugContent::Line(line) => draw_line_3d(
-                                pos + point_to_3d(line.start),
-                                pos + point_to_3d(line.end),
-                                color,
-                            ),
-                            DebugContent::Circle { center, radius } => {
-                                let center = pos + point_to_3d(center);
-                                let mut x = radius;
-                                let mut y = 0.;
-                                for i in 1..=9 {
-                                    let i = (i as f32 * 10.).to_radians();
-                                    let (y2, x2) = i.sin_cos();
-                                    let x2 = x2 * radius;
-                                    let y2 = y2 * radius;
-                                    draw_line_3d(
-                                        vec3(x, y, 0.) + center,
-                                        vec3(x2, y2, 0.) + center,
-                                        color,
-                                    );
-                                    draw_line_3d(
-                                        vec3(-x, -y, 0.) + center,
-                                        vec3(-x2, -y2, 0.) + center,
-                                        color,
-                                    );
-                                    draw_line_3d(
-                                        vec3(-x, y, 0.) + center,
-                                        vec3(-x2, y2, 0.) + center,
-                                        color,
-                                    );
-                                    draw_line_3d(
-                                        vec3(x, -y, 0.) + center,
-                                        vec3(x2, -y2, 0.) + center,
-                                        color,
-                                    );
-                                    (x, y) = (x2, y2);
-                                }
+        for (layer_index, layer) in levels[..max_level].iter().enumerate() {
+            for (bounds, chunk) in layer.iter_all_loaded() {
+                let pos = vec3(0.0, 0.0, layer_index as f32 * -100.);
+                let color = COLORS[layer_index % COLORS.len()];
+                let max = point_to_3d(bounds.max) + pos;
+                let min = point_to_3d(bounds.min) + pos;
+                draw_line_3d(min, vec3(min.x, max.y, pos.z), color);
+                draw_line_3d(min, vec3(max.x, min.y, pos.z), color);
+                draw_line_3d(vec3(max.x, min.y, pos.z), max, color);
+                draw_line_3d(vec3(min.x, max.y, pos.z), max, color);
+                for thing in chunk.render() {
+                    match thing {
+                        DebugContent::Line(line) => draw_line_3d(
+                            pos + point_to_3d(line.start),
+                            pos + point_to_3d(line.end),
+                            color,
+                        ),
+                        DebugContent::Circle { center, radius } => {
+                            let center = pos + point_to_3d(center);
+                            let mut x = radius;
+                            let mut y = 0.;
+                            for i in 1..=9 {
+                                let i = (i as f32 * 10.).to_radians();
+                                let (y2, x2) = i.sin_cos();
+                                let x2 = x2 * radius;
+                                let y2 = y2 * radius;
+                                draw_line_3d(
+                                    vec3(x, y, 0.) + center,
+                                    vec3(x2, y2, 0.) + center,
+                                    color,
+                                );
+                                draw_line_3d(
+                                    vec3(-x, -y, 0.) + center,
+                                    vec3(-x2, -y2, 0.) + center,
+                                    color,
+                                );
+                                draw_line_3d(
+                                    vec3(-x, y, 0.) + center,
+                                    vec3(-x2, y2, 0.) + center,
+                                    color,
+                                );
+                                draw_line_3d(
+                                    vec3(x, -y, 0.) + center,
+                                    vec3(x2, -y2, 0.) + center,
+                                    color,
+                                );
+                                (x, y) = (x2, y2);
                             }
-                            DebugContent::Text { .. } => {}
                         }
+                        DebugContent::Text { .. } => {}
                     }
                 }
-                layer_index += 1;
             }
         }
         next_frame().await
