@@ -153,7 +153,7 @@ impl<T: Num> Line<T> {
 
         let mut c = self.end.y;
         for i in T::iter_range(T::ZERO..self.end.y) {
-            pnt(self.start); // this is normal pixel the two below are subpixels
+            pnt(self.start); // This is the normal pixel. The two below are subpixels
             c -= self.end.x;
             if c <= T::ZERO {
                 if i != self.end.y - T::ONE {
