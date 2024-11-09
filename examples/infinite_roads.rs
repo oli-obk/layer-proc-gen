@@ -18,10 +18,6 @@ use layer_proc_gen::*;
 use rigid2d::Body;
 use vec2::{Bounds, Line, Point2d};
 
-#[path = "../tests/tracing.rs"]
-mod tracing_helper;
-use tracing_helper::*;
-
 #[derive(PartialEq, Debug, Clone, Default)]
 struct City {
     center: Point2d,
@@ -444,8 +440,6 @@ impl Player {
 
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
-    init_tracing();
-
     let mut camera = Camera2D::default();
     let standard_zoom = Vec2::from(screen_size()).recip() * 4.;
     camera.zoom = standard_zoom;

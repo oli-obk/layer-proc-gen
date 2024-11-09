@@ -1,14 +1,18 @@
 [package]
 name = "layer-proc-gen"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.81"
+license = "MIT OR Apache-2.0"
+description = "easy to use chunk based procedural generation library with top-down planning"
+repository = "https://github.com/oli-obk/layer-proc-gen"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-tree = "0.4.0"
 macroquad = "0.4.13"
-rigid2d = { path = "rigid2d" }
+rigid2d = { path = "rigid2d", version = "1" }
+tracing = "0.1.40"
 
 
 [dependencies]
@@ -19,5 +23,4 @@ derive_more = { version = "1.0.0", default-features = false, features = [
     "mul_assign",
 ] }
 rand = { version = "0.8.5", features = ["small_rng"], default-features = false }
-tracing = "0.1.40"
 arrayvec = "0.7.6"

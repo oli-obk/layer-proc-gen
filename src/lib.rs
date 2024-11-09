@@ -41,7 +41,6 @@ use std::borrow::Borrow;
 use debug::{DebugContent, DynLayer};
 use rolling_grid::RollingGrid;
 pub use rolling_grid::{GridIndex, GridPoint};
-use tracing::{instrument, trace};
 pub use vec2::{Bounds, Point2d};
 
 pub mod debug;
@@ -145,10 +144,8 @@ impl<C: Chunk> Layer<C> {
     /// Load all dependencies' chunks and then compute our chunks.
     /// May recursively cause the dependencies to load their deps and so on.
     #[track_caller]
-    #[instrument(level = "trace", skip(self), fields(this = std::any::type_name::<C>()))]
     pub fn ensure_loaded_in_bounds(&self, chunk_bounds: Bounds) {
         let indices = C::bounds_to_grid(chunk_bounds);
-        trace!(?indices);
         let mut create_indices: Vec<_> = indices.iter().collect();
         let center = indices.center();
         // Sort by distance to center, so we load the closest ones first

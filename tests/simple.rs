@@ -3,9 +3,6 @@ use std::sync::Arc;
 use layer_proc_gen::*;
 use vec2::{Bounds, Point2d};
 
-mod tracing;
-use tracing::*;
-
 #[expect(dead_code)]
 #[derive(Clone, Default)]
 struct TheChunk(usize);
@@ -81,7 +78,6 @@ fn double_assign_chunk() {
 
 #[test]
 fn create_player() {
-    init_tracing();
     let the_layer = Layer::new(());
     let player = Layer::<Player>::new((the_layer.clone(),));
     let player_pos = Point2d { x: 42, y: 99 };

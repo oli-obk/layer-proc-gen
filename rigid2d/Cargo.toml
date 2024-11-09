@@ -1,8 +1,11 @@
 [package]
 name = "rigid2d"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 rust-version = "1.68"
+license = "MIT OR Apache-2.0"
+description = "tiny rigid body physics library"
+repository = "https://github.com/oli-obk/layer-proc-gen/rigid2d"
 
 [dependencies]
 glam = "0.27.0"
