@@ -9,6 +9,7 @@ use rand::{
     prelude::*,
 };
 use std::{
+    cmp::Ordering,
     num::NonZeroU16,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
 };
@@ -125,20 +126,24 @@ impl<T: Num> Line<T> {
         self.end -= self.start;
 
         // Pick x direction and step magnitude
-        if self.end.x > T::ZERO {
-            k.x = T::ONE;
-        } else if self.end.x < T::ZERO {
-            k.x = -T::ONE;
-            self.end.x = -self.end.x;
+        match self.end.x.cmp(&T::ZERO) {
+            Ordering::Greater => k.x = T::ONE,
+            Ordering::Equal => {}
+            Ordering::Less => {
+                k.x = -T::ONE;
+                self.end.x = -self.end.x;
+            }
         }
         self.end.x += T::ONE;
 
         // Pick y direction and step magnitude
-        if self.end.y > T::ZERO {
-            k.y = T::ONE;
-        } else if self.end.y < T::ZERO {
-            k.y = -T::ONE;
-            self.end.y = -self.end.y;
+        match self.end.y.cmp(&T::ZERO) {
+            Ordering::Less => k.y = T::ONE,
+            Ordering::Equal => {}
+            Ordering::Greater => {
+                k.y = -T::ONE;
+                self.end.y = -self.end.y;
+            }
         }
         self.end.y += T::ONE;
 
