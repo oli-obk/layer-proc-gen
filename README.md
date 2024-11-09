@@ -32,8 +32,8 @@ The game supports various debug views to experience the layer algorithms visuall
 * You only need to implement `Chunk`s, not `Layer`s, as the latter are a provided struct exposing everything you need from a layer for a specific `Chunk` type.
 * More compile-time shenanigans
     * Chunk positions are typed to the `Chunk` so you don't accidentally mix them with others
-    * Chunk sizes are constants, not runtime values
+    * [Chunk sizes](https://runevision.github.io/LayerProcGen/md_LayersAndChunks.html) are constants, not runtime values
 * Chunks are generated as needed, you do not need to load a region.
     * you can still load a region if you know you're going to need it soon, but it's not very useful due to the missing multithreading support
 * Missing multithreading support, the demo is fast enough so far to compute all necessary chunks in sub-millisecond time.
-* No internal layer levels. Instead you can make the layer type not use a heap relocation but contain the data directly, to avoid adding another indirection if you are never going to use a dependency layer twice. This simplifies the interface and makes it a bit more robust against accidentally depending on information from chunks of the current layer.
+* No [internal layer levels](https://runevision.github.io/LayerProcGen/md_InternalLayerLevels.html). Instead you can make the layer type not use a heap relocation but contain the data directly, to avoid adding another indirection if you are never going to use a dependency layer twice. This simplifies the interface and makes it a bit more robust against accidentally depending on information from chunks of the current layer.
