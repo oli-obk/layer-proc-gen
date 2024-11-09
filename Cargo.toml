@@ -2,6 +2,7 @@
 name = "layer-proc-gen"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.81"
 
 [dev-dependencies]
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
