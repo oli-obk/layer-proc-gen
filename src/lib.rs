@@ -47,12 +47,10 @@ pub use vec2::{Bounds, Point2d};
 pub mod debug;
 pub mod generic_layers;
 
-/// A list of [Chunk] types.
-///
-/// Used to represent the [Chunk] types that a [Layer] depends on for computing
+/// A list of [Chunk] types that a [Layer] depends on for computing
 /// its own chunks.
 ///
-/// When you have 3 or less dependencies, using a tuple is convenient, but for more
+/// When you have 3 or fewer dependencies, using a tuple is convenient, but for more
 /// dependencies, explicitly giving them names is better, so you need to implement this
 /// trait for your own dependency struct.
 ///
@@ -98,6 +96,7 @@ macro_rules! layers {
 layers!(=> T, U, V,);
 
 /// The entry point to access the chunks of a layer.
+///
 /// It exposes various convenience accessors, like iterating over areas in
 /// chunk or world coordinates.
 pub struct Layer<C: Chunk> {
@@ -203,11 +202,12 @@ impl<C: Chunk> Layer<C> {
     }
 }
 
-/// Chunks are always rectangular and all chunks in a given layer have the same world space size.
+/// Chunks are rectangular regions of the same size that make up a layer in a grid shape.
 pub trait Chunk: Sized + Default + Clone + 'static {
     /// Exponent of `2` of the cached area (in grid chunk numbers, not world coordinates).
     /// This is the area that should stay in memory at all times as it will get requested a lot.
     const GRID_SIZE: Point2d<u8> = Point2d::splat(5);
+
     /// Internal `RollingGrid` overlap before the system drops old chunks. Basically scales the grid width/height by
     /// this number to allow moving across the grid width/height boundaries completely transparently.
     /// Increasing this number makes indexing the `RollingGrid` more expensive if there is a lot of overlap.
