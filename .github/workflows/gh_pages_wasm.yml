@@ -11,8 +11,8 @@ jobs:
 
       # build wasm blob and prep dist dir
       - run: rustup target add wasm32-unknown-unknown
-      - run: cargo build --release --target wasm32-unknown-unknown
-      - run: cp target/wasm32-unknown-unknown/release/infinite_roads.wasm dist/infinite_roads.wasm
+      - run: cargo build --release --target wasm32-unknown-unknown --example infinite_roads
+      - run: cp target/wasm32-unknown-unknown/release/examples/infinite_roads.wasm dist/infinite_roads.wasm
 
       # deploy to gh pages
       - uses: peaceiris/actions-gh-pages@v3
