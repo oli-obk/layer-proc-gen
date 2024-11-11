@@ -8,7 +8,7 @@ use std::{
     borrow::Borrow,
     cell::{Cell, Ref, RefCell},
     collections::{BTreeMap, HashMap},
-    f32::consts::PI,
+    f32::consts::{FRAC_PI_2, PI},
     num::NonZeroU8,
     ops::Range,
     sync::Arc,
@@ -16,7 +16,7 @@ use std::{
 
 use layer_proc_gen::*;
 use rigid2d::Body;
-use vec2::{Bounds, Line, Point2d};
+use vec2::{Bounds, Line, Num, Point2d};
 
 #[derive(PartialEq, Debug, Clone, Default)]
 struct City {
@@ -344,11 +344,7 @@ impl Player {
             car: Car {
                 length: 4.,
                 width: 2.,
-                body: Body {
-                    position: vec2(-56., -43.),
-                    rotation: -0.75,
-                    ..Default::default()
-                },
+                body: Default::default(),
                 steering_limit: 15,
                 steering: 0.,
                 color: DARKPURPLE,
@@ -455,6 +451,23 @@ async fn main() {
         Layer::new((cities.clone(), locations.clone())),
         locations.clone(),
     );
+
+    let start_city = cities
+        .get_grid_range(
+            Bounds::point(Point2d::splat(GridIndex::ZERO)).pad(Point2d::splat(GridIndex::TWO)),
+        )
+        .flat_map(|c| c.points.into_iter())
+        .next()
+        .expect("you wont the lottery, no cities in a 5x5 grid");
+    let start_road = player
+        .roads
+        .get_range(Bounds::point(start_city.center).pad(Point2d::splat(start_city.size)))
+        .find_map(|c| c.roads.iter().copied().next())
+        .expect("you wont the lottery, no roads in a city");
+    player.car.body.position = vec2(start_road.start.x as f32, start_road.start.y as f32);
+    let dir = start_road.end - start_road.end;
+    player.car.body.rotation = vec2(dir.x as f32, dir.y as f32).to_angle() + FRAC_PI_2;
+
     let mut smooth_cam_speed = 0.0;
     let mut debug_zoom = 1.0;
     let mut debug_view = false;
