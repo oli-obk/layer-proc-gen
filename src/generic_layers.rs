@@ -78,9 +78,9 @@ pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
     let x = SmallRng::seed_from_u64(index.x.as_u64());
     let y = SmallRng::seed_from_u64(index.y.as_u64());
     let salt = SmallRng::seed_from_u64(SALT);
-    let mut seed = [0; 32];
+    let mut seed = <SmallRng as SeedableRng>::Seed::default();
     for mut rng in [x, y, salt] {
-        let mut tmp = [0; 32];
+        let mut tmp = <SmallRng as SeedableRng>::Seed::default();
         rng.fill_bytes(&mut tmp);
         for (seed, tmp) in seed.iter_mut().zip(tmp.iter()) {
             *seed ^= *tmp;
