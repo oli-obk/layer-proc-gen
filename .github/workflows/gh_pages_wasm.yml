@@ -1,0 +1,26 @@
+name: Continuous deployment
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jetli/trunk-action@v0.4.0
+      - uses: jetli/wasm-bindgen-action@v0.2.0
+
+      - uses: actions/checkout@v4
+
+      # build wasm blob and prep dist dir
+      - run: rustup target add wasm32-unknown-unknown
+      - run: trunk build --release --example infinite_roads
+      - run: cp target/wasm32-unknown-unknown/release/infinite_roads.wasm dist/infinite_roads.wasm
+      - run: cp *.js dist/
+
+      # deploy to gh pages
+      - uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
