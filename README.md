@@ -12,7 +12,7 @@ If you are tempted to use boundary conditions out of any reason, add another lay
 Chunks are cached once computed, so accessing them repeatedly is cheap. Once too many chunks are loaded, those that have been accessed the longest time in the past will
 get freed automatically. By default reasonable limits for the number of loaded chunks are chosen, but you can increase or decrease them if the layers have specific other requirements.
 
-An example game is included in the `examples` section of this crate. It is an infinite
+An example game is included in the `examples` section of this crate (Play the demo in your browser [here](https://oli-obk.github.io/layer-proc-gen/)). It is an infinite
 world of small towns and medium sized cities, connected by inter-city roads.
 
 ![A motorcycle on a grey road with green spaces next to it and some dark green circles looking like trees](screenshot_game.png)
