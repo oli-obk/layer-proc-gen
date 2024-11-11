@@ -7,16 +7,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: jetli/trunk-action@v0.4.0
-      - uses: jetli/wasm-bindgen-action@v0.2.0
-
       - uses: actions/checkout@v4
 
       # build wasm blob and prep dist dir
       - run: rustup target add wasm32-unknown-unknown
-      - run: trunk build --release
+      - run: cargo build --release --target wasm32-unknown-unknown
       - run: cp target/wasm32-unknown-unknown/release/infinite_roads.wasm dist/infinite_roads.wasm
-      - run: cp *.js dist/
 
       # deploy to gh pages
       - uses: peaceiris/actions-gh-pages@v3
