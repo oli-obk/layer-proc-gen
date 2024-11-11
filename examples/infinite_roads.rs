@@ -28,10 +28,12 @@ struct City {
 impl From<Point2d> for City {
     fn from(center: Point2d) -> Self {
         let mut rng = rng_for_point::<0, _>(center);
+        let size = Self::SIZES.sample_single(&mut rng);
+        let n = 10 * size as i64 / Self::SIZES.end as i64;
         City {
             center,
-            size: { Self::SIZES.sample_single(&mut rng) },
-            name: (0..(3..12).sample_single(&mut rng))
+            size,
+            name: (0..(3..(n + 3)).sample_single(&mut rng))
                 .map(|_| ('a'..='z').sample_single(&mut rng))
                 .collect(),
         }
@@ -93,10 +95,7 @@ struct ReducedLocations {
 
 impl Chunk for ReducedLocations {
     type LayerStore<T> = Arc<T>;
-    type Dependencies = (
-        ReducedUniformPoint<Intersection, 6, 0>,
-        ReducedUniformPoint<City, 11, 1>,
-    );
+    type Dependencies = (ReducedUniformPoint<Intersection, 6, 0>, Cities);
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
@@ -241,10 +240,12 @@ struct Highways {
     roads: Arc<Vec<Highway>>,
 }
 
+type Cities = ReducedUniformPoint<City, 11, 1>;
+
 impl Chunk for Highways {
     type LayerStore<T> = T;
-    type Dependencies = (ReducedUniformPoint<City, 11, 1>, ReducedLocations);
-    const SIZE: Point2d<u8> = ReducedUniformPoint::<City, 11, 1>::SIZE;
+    type Dependencies = (Cities, ReducedLocations);
+    const SIZE: Point2d<u8> = Cities::SIZE;
 
     fn compute(
         (cities, locations): &<Self::Dependencies as Dependencies>::Layer,
@@ -436,7 +437,7 @@ impl Player {
 
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
-    let cities = Layer::new(ReducedUniformPoint::default_layer());
+    let cities = Layer::new(Cities::default_layer());
     let locations = Layer::new((Default::default(), cities.clone()));
     let mut player = Player::new(
         Layer::new((locations.clone(),)),
@@ -484,6 +485,9 @@ async fn main() {
                 player.roads.debug(),
             ])
             .await;
+        }
+        if is_key_pressed(KeyCode::M) {
+            render_map(&player, &cities).await
         }
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
@@ -698,6 +702,55 @@ async fn main() {
             );
         }
 
+        next_frame().await
+    }
+}
+
+async fn render_map(player: &Player, cities: &Layer<Cities>) {
+    let mut camera = Camera2D::default();
+    let screen_size = Vec2::from(screen_size());
+    camera.zoom = screen_size.recip() / 4.;
+    set_camera(&camera);
+    // Avoid immediately exiting again because M is still pressed.
+    let mut just_started = true;
+    while just_started || (!is_key_pressed(KeyCode::M) && !is_key_pressed(KeyCode::Escape)) {
+        just_started = false;
+        clear_background(DARKGREEN);
+        let pos = player.pos();
+        let range = Bounds::point(pos).pad(Point2d::splat(10000));
+        for highways in player.highways.get_range(range) {
+            for highway in highways.roads.iter() {
+                let Line { start, end } = highway.line;
+                let start = start - pos;
+                let end = end - pos;
+                draw_line(
+                    start.x as f32,
+                    start.y as f32,
+                    end.x as f32,
+                    end.y as f32,
+                    100.,
+                    GRAY,
+                );
+            }
+        }
+        for chunk in cities.get_range(range) {
+            for city in &chunk.points {
+                let pos = city.center - pos;
+                draw_circle(pos.x as f32, pos.y as f32, city.size as f32, WHITE);
+                let center = get_text_center(&city.name, None, 30, 4., 0.);
+                draw_text_ex(
+                    &city.name,
+                    pos.x as f32 - center.x,
+                    pos.y as f32 - center.y,
+                    TextParams {
+                        font_size: 30,
+                        font_scale: 4.,
+                        color: BLACK,
+                        ..Default::default()
+                    },
+                );
+            }
+        }
         next_frame().await
     }
 }
