@@ -6,7 +6,6 @@ use std::{
     cell::{Cell, RefCell},
     marker::PhantomData,
     ops::{Div, DivAssign, Neg},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 /// The x and y positions of a chunk in the number of chunks, not in world coordinates.
@@ -19,6 +18,7 @@ pub(crate) struct RollingGrid<C: Chunk> {
     /// some of which are `None` if they have nevef been used
     /// so far.
     grid: Box<[Box<[ActiveCell<C>]>]>,
+    time: Cell<u64>,
 }
 
 impl<C: Chunk> Default for RollingGrid<C> {
@@ -31,6 +31,7 @@ impl<C: Chunk> Default for RollingGrid<C> {
             })
             .take((1 << C::GRID_SIZE.x) << C::GRID_SIZE.y)
             .collect(),
+            time: Cell::new(1),
         }
     }
 }
@@ -208,7 +209,7 @@ impl<C: Chunk> GridPoint<C> {
 struct ActiveCell<C: Chunk> {
     pos: Cell<GridPoint<C>>,
     chunk: RefCell<C>,
-    last_access: Cell<SystemTime>,
+    last_access: Cell<u64>,
 }
 
 impl<C: Chunk> Default for ActiveCell<C> {
@@ -216,7 +217,7 @@ impl<C: Chunk> Default for ActiveCell<C> {
         Self {
             pos: GridPoint::splat(GridIndex::from_raw(i64::MIN)).into(),
             chunk: Default::default(),
-            last_access: UNIX_EPOCH.into(),
+            last_access: Cell::new(0),
         }
     }
 }
@@ -231,14 +232,15 @@ impl<C: Chunk> RollingGrid<C> {
         pos: GridPoint<C>,
         layer: &<C::Dependencies as Dependencies>::Layer,
     ) -> C {
-        let now = SystemTime::now();
+        let now = self.time.get();
+        self.time.set(now.checked_add(1).unwrap());
         // Find existing entry and bump its last use, or
         // find an empty entry, or
         // find the least recently accessed entry.
         let (mut free, mut rest) = self.access(pos).split_first().unwrap();
         while let Some((p, r)) = rest.split_first() {
             rest = r;
-            if p.last_access.get() == UNIX_EPOCH {
+            if p.last_access.get() == 0 {
             } else if p.pos.get() == pos {
                 p.last_access.set(now);
                 return p.chunk.borrow().clone();
@@ -288,7 +290,7 @@ impl<C: Chunk> RollingGrid<C> {
         self.grid
             .iter()
             .flatten()
-            .filter(|cell| cell.last_access.get() != UNIX_EPOCH)
+            .filter(|cell| cell.last_access.get() != 0)
             .map(|cell| (cell.pos.get(), cell.chunk.borrow().clone()))
     }
 }
