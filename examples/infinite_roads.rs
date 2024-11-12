@@ -540,19 +540,13 @@ async fn main() {
             );
         };
 
-        let padding = if screen_width() < screen_height() {
-            vec2(100., screen_height() / screen_width() * 100.)
-        } else {
-            vec2(screen_width() / screen_height() * 100., 100.)
-        };
-
         let draw_line = |line: Line, thickness, color| {
             let start = point2screen(line.start);
             let end = point2screen(line.end);
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        let roads = player.roads(padding);
+        let roads = player.roads(screen_padding());
         let (roads, trees) = &*roads;
         for highway in roads.iter() {
             let start = point2screen(highway.line.start);
@@ -665,6 +659,7 @@ async fn main() {
         }
 
         if debug_view {
+            let padding = screen_padding();
             draw_rectangle_lines(
                 -padding.x,
                 -padding.y,
@@ -707,6 +702,14 @@ async fn main() {
         }
 
         next_frame().await
+    }
+}
+
+fn screen_padding() -> Vec2 {
+    if screen_width() < screen_height() {
+        vec2(100., screen_height() / screen_width() * 100.)
+    } else {
+        vec2(screen_width() / screen_height() * 100., 100.)
     }
 }
 
