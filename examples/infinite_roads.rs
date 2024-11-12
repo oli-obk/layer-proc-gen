@@ -436,14 +436,6 @@ impl Player {
 
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
-    let mut camera = Camera2D::default();
-    let standard_zoom = Vec2::from(screen_size()).recip() * 4.;
-    camera.zoom = standard_zoom;
-    set_camera(&camera);
-    let mut overlay_camera = Camera2D::default();
-    overlay_camera.zoom = standard_zoom / 4.;
-    overlay_camera.offset = vec2(-1., 1.);
-
     let cities = Layer::new(ReducedUniformPoint::default_layer());
     let locations = Layer::new((Default::default(), cities.clone()));
     let mut player = Player::new(
@@ -517,6 +509,9 @@ async fn main() {
         let max_zoom_in = f32::from(player.max_zoom_in.get());
         let max_zoom_out = f32::from(player.max_zoom_out.get());
         smooth_cam_speed = smooth_cam_speed.clamp(0.0, max_zoom_in);
+
+        let standard_zoom = Vec2::from(screen_size()).recip() * 4.;
+        let mut camera = Camera2D::default();
         camera.zoom = standard_zoom * (max_zoom_in + 1.0 / max_zoom_out - smooth_cam_speed);
         camera.zoom /= debug_zoom;
         set_camera(&camera);
@@ -678,6 +673,9 @@ async fn main() {
                 let current_chunk = Roads::bounds(index);
                 draw_bounds(current_chunk, PURPLE);
             }
+            let mut overlay_camera = Camera2D::default();
+            overlay_camera.zoom = standard_zoom / 4.;
+            overlay_camera.offset = vec2(-1., 1.);
             set_camera(&overlay_camera);
             draw_text(&format!("fps: {}", get_fps()), 0., 30., 30., WHITE);
             draw_text(
