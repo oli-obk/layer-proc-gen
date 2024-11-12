@@ -391,10 +391,10 @@ struct PlayerView(Arc<PlayerViewData>);
 impl Chunk for PlayerView {
     type LayerStore<T> = Arc<T>;
 
-    type Dependencies = (Roads, Highways, ReducedLocations);
+    type Dependencies = (Roads, Highways);
 
     fn compute(
-        (city_roads, highways, locations): &<Self::Dependencies as Dependencies>::Layer,
+        (city_roads, highways): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let mut roads = vec![];
@@ -421,7 +421,12 @@ impl Chunk for PlayerView {
             roads.extend_from_slice(&highways.get_or_compute(index).roads);
         }
         for index in grid_vision_range.iter() {
-            for &tree in &locations.get_or_compute(index.into_same_chunk_size()).trees {
+            for &tree in &highways
+                .deps()
+                .0
+                .get_or_compute(index.into_same_chunk_size())
+                .trees
+            {
                 trees.push(Tree { pos: tree });
             }
         }
@@ -448,7 +453,7 @@ async fn main() {
     let locations = Layer::new((Default::default(), cities.clone()));
     let roads = Layer::new((locations.clone(),));
     let highways = Layer::new((locations.clone(),));
-    let mut player = Player::new(Layer::new((roads, highways, locations)));
+    let mut player = Player::new(Layer::new((roads, highways)));
 
     let start_city = cities
         .get_grid_range(
