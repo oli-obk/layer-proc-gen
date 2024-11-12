@@ -540,7 +540,11 @@ async fn main() {
             );
         };
 
-        let padding = camera.screen_to_world(Vec2::splat(0.));
+        let padding = if screen_width() < screen_height() {
+            vec2(100., screen_height() / screen_width() * 100.)
+        } else {
+            vec2(screen_width() / screen_height() * 100., 100.)
+        };
 
         let draw_line = |line: Line, thickness, color| {
             let start = point2screen(line.start);
