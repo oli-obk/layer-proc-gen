@@ -449,13 +449,14 @@ impl Chunk for PlayerView {
 
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
-    let cities = Layer::new(Cities::default_layer());
-    let locations = Layer::new((Default::default(), cities.clone()));
+    let locations = Layer::default();
     let roads = Layer::new((locations.clone(),));
     let highways = Layer::new((locations.clone(),));
     let mut player = Player::new(Layer::new((roads, highways)));
 
-    let start_city = cities
+    let start_city = locations
+        .deps()
+        .1
         .get_grid_range(
             Bounds::point(Point2d::splat(GridIndex::ZERO)).pad(Point2d::splat(GridIndex::TWO)),
         )
@@ -489,7 +490,7 @@ async fn main() {
             render_3d_layers(vec![player.view.debug()]).await;
         }
         if is_key_pressed(KeyCode::M) {
-            render_map(&player, &cities, &player.view.deps().1).await
+            render_map(&player).await
         }
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),
@@ -657,7 +658,6 @@ async fn main() {
 
         if debug_chunks {
             draw_layer_debug(player.view.debug(), DARKPURPLE);
-            draw_layer_debug(cities.debug(), DARKPURPLE);
         }
 
         if debug_view {
@@ -715,7 +715,7 @@ fn screen_padding() -> Vec2 {
     }
 }
 
-async fn render_map(player: &Player, cities: &Layer<Cities>, highways: &Layer<Highways>) {
+async fn render_map(player: &Player) {
     let mut camera = Camera2D::default();
     let screen_size = Vec2::from(screen_size());
     camera.zoom = screen_size.recip() / 4.;
@@ -727,6 +727,7 @@ async fn render_map(player: &Player, cities: &Layer<Cities>, highways: &Layer<Hi
         clear_background(DARKGREEN);
         let pos = player.pos();
         let range = Bounds::point(pos).pad(Point2d::splat(10000));
+        let highways = &player.view.deps().1;
         for highways in highways.get_range(range) {
             for highway in highways.roads.iter() {
                 let Line { start, end } = highway.line;
@@ -742,7 +743,7 @@ async fn render_map(player: &Player, cities: &Layer<Cities>, highways: &Layer<Hi
                 );
             }
         }
-        for chunk in cities.get_range(range) {
+        for chunk in highways.deps().0.deps().1.get_range(range) {
             for city in &chunk.points {
                 let pos = city.center - pos;
                 draw_circle(pos.x as f32, pos.y as f32, city.size as f32, WHITE);
