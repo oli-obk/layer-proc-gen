@@ -61,10 +61,9 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
             .get_or_compute(index.into_same_chunk_size())
             .points
         {
-            for other in raw_points.get_range(Bounds {
-                min: p.position() - Point2d::splat(p.radius()),
-                max: p.position() + Point2d::splat(p.radius()),
-            }) {
+            for other in raw_points.get_range(
+                Bounds::point(p.position()).pad(Point2d::splat(p.radius() + P::RADIUS_RANGE.end))
+            ) {
                 for other in other.points {
                     if other == p {
                         continue;
@@ -77,7 +76,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
                             .is_lt();
 
                     // skip current point if another point's center is within our radius and we have lower priority
-                    if other.position().manhattan_dist(p.position()) < p.radius()
+                    if other.position().manhattan_dist(p.position()) < p.radius() + other.radius()
                         && lower_priority
                     {
                         continue 'points;
