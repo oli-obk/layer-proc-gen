@@ -383,11 +383,10 @@ impl Player {
 
     pub fn vision_range<C: Chunk>(&self, vision_range: Vec2) -> Bounds {
         let padding = vision_range.abs().ceil().as_i64vec2();
-        Bounds::point(self.pos())
+        let bounds = Bounds::point(self.pos())
             // pad by the screen area, so everything that will get rendered is within the vision range
-            .pad(Point2d::new(padding.x, padding.y))
-            // Pad by a chunk size to make sure we see effects from the neighboring chunks
-            .pad(C::SIZE.map(|i| 1 << i))
+            .pad(Point2d::new(padding.x, padding.y));
+        C::vision_range(bounds)
     }
 
     pub fn grid_vision_range<C: Chunk>(&self, vision_range: Vec2) -> Bounds<GridIndex<C>> {

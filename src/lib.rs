@@ -245,6 +245,11 @@ pub trait Chunk: Sized + Default + Clone + 'static {
         RollingGrid::<Self>::pos_to_grid_pos(point)
     }
 
+    /// Pad by a chunk size to make sure we see effects from the neighboring chunks
+    fn vision_range(bounds: Bounds) -> Bounds {
+        bounds.pad(Self::SIZE.map(|i| 1 << i))
+    }
+
     /// Convenience helper to create a `Layer<Self>`.
     fn default_layer() -> <Self::Dependencies as Dependencies>::Layer {
         Default::default()
