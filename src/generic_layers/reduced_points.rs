@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use arrayvec::ArrayVec;
 
@@ -14,6 +14,9 @@ use super::UniformPoint;
 /// Represents point like types that do not want to be close to other types.
 /// The larger of two objects is kept if they are too close to each other.
 pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
+    /// The range of radii that `radius` can return.
+    const RADIUS_RANGE: Range<i64>;
+
     /// The radius around the thing to be kept free from other things.
     fn radius(&self) -> i64;
     /// Center position of the circle to keep free of other things.

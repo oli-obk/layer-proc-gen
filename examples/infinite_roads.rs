@@ -28,8 +28,8 @@ struct City {
 impl From<Point2d> for City {
     fn from(center: Point2d) -> Self {
         let mut rng = rng_for_point::<0, _>(center);
-        let size = Self::SIZES.sample_single(&mut rng);
-        let n = 10 * size as i64 / Self::SIZES.end as i64;
+        let size = Self::RADIUS_RANGE.sample_single(&mut rng);
+        let n = 10 * size as i64 / Self::RADIUS_RANGE.end as i64;
         City {
             center,
             size,
@@ -40,11 +40,9 @@ impl From<Point2d> for City {
     }
 }
 
-impl City {
-    const SIZES: Range<i64> = 100..500;
-}
-
 impl Reducible for City {
+    const RADIUS_RANGE: Range<i64> = 100..500;
+
     fn radius(&self) -> i64 {
         self.size
     }
@@ -77,6 +75,8 @@ impl From<Point2d> for Intersection {
 }
 
 impl Reducible for Intersection {
+    const RADIUS_RANGE: Range<i64> = 50..51;
+
     fn radius(&self) -> i64 {
         50
     }
@@ -111,7 +111,7 @@ impl Chunk for ReducedLocations {
             .map(|p| p.0)
             .collect();
         if cities
-            .get_range(Bounds::point(center).pad(Point2d::splat(City::SIZES.end)))
+            .get_range(Bounds::point(center).pad(Point2d::splat(City::RADIUS_RANGE.end)))
             .all(|cities| {
                 cities
                     .points
