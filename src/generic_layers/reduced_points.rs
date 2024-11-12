@@ -76,6 +76,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
                             .then_with(|| p.position().cmp(&other.position()))
                             .is_lt();
 
+                    // skip current point if another point's center is within our radius and we have lower priority
                     if other.position().manhattan_dist(p.position()) < p.radius()
                         && lower_priority
                     {
