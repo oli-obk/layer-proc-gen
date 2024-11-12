@@ -61,7 +61,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
             .points
         {
             for other in raw_points.get_range(Bounds {
-                min: p.position(),
+                min: p.position() - Point2d::splat(p.radius()),
                 max: p.position() + Point2d::splat(p.radius()),
             }) {
                 for other in other.points {
