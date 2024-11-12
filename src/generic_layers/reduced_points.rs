@@ -76,7 +76,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
                             .then_with(|| p.position().cmp(&other.position()))
                             .is_lt();
 
-                    if other.position().manhattan_dist(p.position()) < p.radius() + other.radius()
+                    if other.position().manhattan_dist(p.position()) < p.radius()
                         && lower_priority
                     {
                         continue 'points;
