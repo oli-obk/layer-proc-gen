@@ -243,15 +243,17 @@ type Cities = ReducedUniformPoint<City, 11, 1>;
 
 impl Chunk for Highways {
     type LayerStore<T> = T;
-    type Dependencies = (Cities, ReducedLocations);
+    type Dependencies = (ReducedLocations,);
     const SIZE: Point2d<u8> = Cities::SIZE;
 
     fn compute(
-        (cities, locations): &<Self::Dependencies as Dependencies>::Layer,
+        (locations,): &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let roads = gen_roads(
-            cities
+            locations
+                .deps()
+                .1
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |p| p.center,
@@ -445,7 +447,7 @@ async fn main() {
     let cities = Layer::new(Cities::default_layer());
     let locations = Layer::new((Default::default(), cities.clone()));
     let roads = Layer::new((locations.clone(),));
-    let highways = Layer::new((cities.clone(), locations.clone()));
+    let highways = Layer::new((locations.clone(),));
     let mut player = Player::new(Layer::new((roads, highways, locations)));
 
     let start_city = cities
