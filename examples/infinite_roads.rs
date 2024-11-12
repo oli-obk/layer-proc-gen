@@ -397,7 +397,8 @@ impl Player {
         C::bounds_to_grid(self.vision_range::<C>(half_screen_visible_area))
     }
 
-    pub fn roads(&self, half_screen_visible_area: Vec2) -> Ref<'_, (Vec<Highway>, Vec<Tree>)> {
+    pub fn roads(&self) -> Ref<'_, (Vec<Highway>, Vec<Tree>)> {
+        let half_screen_visible_area = screen_padding();
         let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
         let highway_vision_range = self.grid_vision_range(half_screen_visible_area);
         if (grid_vision_range, highway_vision_range) != self.last_grid_vision_range.get() {
@@ -546,7 +547,7 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        let roads = player.roads(screen_padding());
+        let roads = player.roads();
         let (roads, trees) = &*roads;
         for highway in roads.iter() {
             let start = point2screen(highway.line.start);
