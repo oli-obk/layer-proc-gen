@@ -13,6 +13,7 @@ use super::UniformPoint;
 
 /// Represents point like types that do not want to be close to other types.
 /// The larger of two objects is kept if they are too close to each other.
+/// If both objects have the same radius, the one with the higher X coordinate is kept (or higher Y if X is also the same).
 pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     /// The range of radii that `radius` can return.
     const RADIUS_RANGE: Range<i64>;
@@ -69,8 +70,14 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
                         continue;
                     }
 
+                    // prefer to delete lower radius, then lower x, then lower y
+                    let lower_priority =
+                        p.radius().cmp(&other.radius())
+                            .then_with(|| p.position().cmp(&other.position()))
+                            .is_lt();
+
                     if other.position().manhattan_dist(p.position()) < p.radius() + other.radius()
-                        && p.radius() < other.radius()
+                        && lower_priority
                     {
                         continue 'points;
                     }
