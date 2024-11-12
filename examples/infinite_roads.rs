@@ -381,8 +381,8 @@ impl Player {
         }
     }
 
-    pub fn vision_range<C: Chunk>(&self, half_screen_visible_area: Vec2) -> Bounds {
-        let padding = half_screen_visible_area.abs().ceil().as_i64vec2();
+    pub fn vision_range<C: Chunk>(&self, vision_range: Vec2) -> Bounds {
+        let padding = vision_range.abs().ceil().as_i64vec2();
         Bounds::point(self.pos())
             // pad by the screen area, so everything that will get rendered is within the vision range
             .pad(Point2d::new(padding.x, padding.y))
@@ -390,17 +390,14 @@ impl Player {
             .pad(C::SIZE.map(|i| 1 << i))
     }
 
-    pub fn grid_vision_range<C: Chunk>(
-        &self,
-        half_screen_visible_area: Vec2,
-    ) -> Bounds<GridIndex<C>> {
-        C::bounds_to_grid(self.vision_range::<C>(half_screen_visible_area))
+    pub fn grid_vision_range<C: Chunk>(&self, vision_range: Vec2) -> Bounds<GridIndex<C>> {
+        C::bounds_to_grid(self.vision_range::<C>(vision_range))
     }
 
     pub fn roads(&self) -> Ref<'_, (Vec<Highway>, Vec<Tree>)> {
-        let half_screen_visible_area = screen_padding();
-        let grid_vision_range = self.grid_vision_range(half_screen_visible_area);
-        let highway_vision_range = self.grid_vision_range(half_screen_visible_area);
+        let vision_range = screen_padding();
+        let grid_vision_range = self.grid_vision_range(vision_range);
+        let highway_vision_range = self.grid_vision_range(vision_range);
         if (grid_vision_range, highway_vision_range) != self.last_grid_vision_range.get() {
             self.last_grid_vision_range
                 .set((grid_vision_range, highway_vision_range));
