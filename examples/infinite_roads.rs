@@ -149,7 +149,7 @@ struct Roads {
 }
 
 impl Chunk for Roads {
-    type LayerStore<T> = Arc<T>;
+    type LayerStore<T> = T;
     type Dependencies = (ReducedLocations,);
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
@@ -242,7 +242,7 @@ struct Highways {
 type Cities = ReducedUniformPoint<City, 11, 1>;
 
 impl Chunk for Highways {
-    type LayerStore<T> = Arc<T>;
+    type LayerStore<T> = T;
     type Dependencies = (Cities, ReducedLocations);
     const SIZE: Point2d<u8> = Cities::SIZE;
 
@@ -446,11 +446,7 @@ async fn main() {
     let locations = Layer::new((Default::default(), cities.clone()));
     let roads = Layer::new((locations.clone(),));
     let highways = Layer::new((cities.clone(), locations.clone()));
-    let mut player = Player::new(Layer::new((
-        roads.clone(),
-        highways.clone(),
-        locations.clone(),
-    )));
+    let mut player = Player::new(Layer::new((roads, highways, locations)));
 
     let start_city = cities
         .get_grid_range(
@@ -459,7 +455,10 @@ async fn main() {
         .flat_map(|c| c.points.into_iter())
         .next()
         .expect("you wont the lottery, no cities in a 5x5 grid");
-    let start_road = roads
+    let start_road = player
+        .view
+        .deps()
+        .0
         .get_range(Bounds::point(start_city.center).pad(Point2d::splat(start_city.size)))
         .find_map(|c| c.roads.iter().copied().next())
         .expect("you wont the lottery, no roads in a city");
@@ -477,13 +476,13 @@ async fn main() {
             return;
         }
         if is_key_pressed(KeyCode::F3) {
-            render_debug_layers(vec![locations.debug(), highways.debug(), roads.debug()]).await;
+            render_debug_layers(vec![player.view.debug()]).await;
         }
         if is_key_pressed(KeyCode::F4) {
-            render_3d_layers(vec![locations.debug(), highways.debug(), roads.debug()]).await;
+            render_3d_layers(vec![player.view.debug()]).await;
         }
         if is_key_pressed(KeyCode::M) {
-            render_map(&player, &cities, &highways).await
+            render_map(&player, &cities, &player.view.deps().1).await
         }
         player.car.update(Actions {
             accelerate: is_key_down(KeyCode::W),

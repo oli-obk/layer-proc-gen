@@ -158,10 +158,7 @@ impl<C: Chunk> Layer<C> {
 
     /// Get a chunk or generate it if it wasn't already cached.
     pub fn get_or_compute(&self, index: GridPoint<C>) -> C {
-        self.layer
-            .borrow()
-            .0
-            .get_or_compute(index, &self.layer.borrow().1)
+        self.layer.borrow().0.get_or_compute(index, self.deps())
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -195,7 +192,12 @@ impl<C: Chunk> Layer<C> {
     }
 
     fn debug_deps(&self) -> Vec<&dyn DynLayer> {
-        C::Dependencies::debug(&self.layer.borrow().1)
+        C::Dependencies::debug(self.deps())
+    }
+
+    /// Access dependencies directly
+    pub fn deps(&self) -> &<C::Dependencies as Dependencies>::Layer {
+        &self.layer.borrow().1
     }
 }
 
