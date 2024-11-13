@@ -241,13 +241,28 @@ struct Highways {
 
 type Cities = ReducedUniformPoint<City, 11, 1>;
 
+#[derive(Default)]
+struct HighwayDeps {
+    intersections: Layer<ReducedLocations>,
+}
+
+impl Dependencies for Highways {
+    type Layer = HighwayDeps;
+
+    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug()]
+    }
+}
+
 impl Chunk for Highways {
     type LayerStore<T> = T;
-    type Dependencies = (ReducedLocations,);
+    type Dependencies = Highways;
     const SIZE: Point2d<u8> = Cities::SIZE;
 
     fn compute(
-        (locations,): &<Self::Dependencies as Dependencies>::Layer,
+        HighwayDeps {
+            intersections: locations,
+        }: &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let roads = gen_roads(
@@ -421,7 +436,7 @@ impl Chunk for PlayerView {
         }
         for index in grid_vision_range.iter() {
             for &tree in &highways
-                .0
+                .intersections
                 .get_or_compute(index.into_same_chunk_size())
                 .trees
             {
@@ -449,7 +464,9 @@ impl Chunk for PlayerView {
 async fn main() {
     let locations = Layer::<ReducedLocations>::default();
     let roads = Layer::new((locations.clone(),));
-    let highways = Layer::new((locations.clone(),));
+    let highways = Layer::new(HighwayDeps {
+        intersections: locations.clone(),
+    });
     let mut player = Player::new(Layer::new((roads, highways)));
 
     let start_city = locations
@@ -739,7 +756,7 @@ async fn render_map(player: &Player) {
                 );
             }
         }
-        for chunk in highways.0 .1.get_range(range) {
+        for chunk in highways.intersections.1.get_range(range) {
             for city in &chunk.points {
                 let pos = city.center - pos;
                 draw_circle(pos.x as f32, pos.y as f32, city.size as f32, WHITE);
