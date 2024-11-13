@@ -62,23 +62,23 @@ impl Chunk for MapChunk {
 
 #[test]
 fn create_layer() {
-    let layer = Layer::new(());
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
+    let layer = Layer::<TheChunk>::new(());
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
 }
 
 #[test]
 fn double_assign_chunk() {
-    let layer = Layer::new(());
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
+    let layer = Layer::<TheChunk>::new(());
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::<TheChunk>::from_raw));
+    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
 }
 
 #[test]
 fn create_player() {
-    let the_layer = Layer::new(());
+    let the_layer = Layer::<TheChunk>::new(());
     let player = Layer::<Player>::new((the_layer.clone(),));
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));

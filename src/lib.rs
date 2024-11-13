@@ -36,7 +36,7 @@
 #![warn(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
 #![deny(missing_docs)]
 
-use std::borrow::Borrow;
+use std::{borrow::Borrow, ops::Deref};
 
 use debug::{DebugContent, DynLayer};
 use rolling_grid::RollingGrid;
@@ -102,6 +102,14 @@ pub struct Layer<C: Chunk> {
     layer: Store<C>,
 }
 
+impl<C: Chunk> Deref for Layer<C> {
+    type Target = <C::Dependencies as Dependencies>::Layer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.layer.borrow().1
+    }
+}
+
 impl<C: Chunk> Default for Layer<C> {
     /// Create an entirely new layer and its dependencies.
     /// The dependencies will not be connected to any other dependencies
@@ -158,7 +166,7 @@ impl<C: Chunk> Layer<C> {
 
     /// Get a chunk or generate it if it wasn't already cached.
     pub fn get_or_compute(&self, index: GridPoint<C>) -> C {
-        self.layer.borrow().0.get_or_compute(index, self.deps())
+        self.layer.borrow().0.get_or_compute(index, self)
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -192,12 +200,7 @@ impl<C: Chunk> Layer<C> {
     }
 
     fn debug_deps(&self) -> Vec<&dyn DynLayer> {
-        C::Dependencies::debug(self.deps())
-    }
-
-    /// Access dependencies directly
-    pub fn deps(&self) -> &<C::Dependencies as Dependencies>::Layer {
-        &self.layer.borrow().1
+        C::Dependencies::debug(self)
     }
 }
 

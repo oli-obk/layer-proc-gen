@@ -252,7 +252,6 @@ impl Chunk for Highways {
     ) -> Self {
         let roads = gen_roads(
             locations
-                .deps()
                 .1
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
@@ -422,7 +421,6 @@ impl Chunk for PlayerView {
         }
         for index in grid_vision_range.iter() {
             for &tree in &highways
-                .deps()
                 .0
                 .get_or_compute(index.into_same_chunk_size())
                 .trees
@@ -449,13 +447,12 @@ impl Chunk for PlayerView {
 
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
-    let locations = Layer::default();
+    let locations = Layer::<ReducedLocations>::default();
     let roads = Layer::new((locations.clone(),));
     let highways = Layer::new((locations.clone(),));
     let mut player = Player::new(Layer::new((roads, highways)));
 
     let start_city = locations
-        .deps()
         .1
         .get_grid_range(
             Bounds::point(Point2d::splat(GridIndex::ZERO)).pad(Point2d::splat(GridIndex::TWO)),
@@ -465,7 +462,6 @@ async fn main() {
         .expect("you wont the lottery, no cities in a 5x5 grid");
     let start_road = player
         .view
-        .deps()
         .0
         .get_range(Bounds::point(start_city.center).pad(Point2d::splat(start_city.size)))
         .find_map(|c| c.roads.iter().copied().next())
@@ -727,7 +723,7 @@ async fn render_map(player: &Player) {
         clear_background(DARKGREEN);
         let pos = player.pos();
         let range = Bounds::point(pos).pad(Point2d::splat(10000));
-        let highways = &player.view.deps().1;
+        let highways = &player.view.1;
         for highways in highways.get_range(range) {
             for highway in highways.roads.iter() {
                 let Line { start, end } = highway.line;
@@ -743,7 +739,7 @@ async fn render_map(player: &Player) {
                 );
             }
         }
-        for chunk in highways.deps().0.deps().1.get_range(range) {
+        for chunk in highways.0 .1.get_range(range) {
             for city in &chunk.points {
                 let pos = city.center - pos;
                 draw_circle(pos.x as f32, pos.y as f32, city.size as f32, WHITE);
