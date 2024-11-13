@@ -215,9 +215,9 @@ pub trait Chunk: Sized + Default + Clone + 'static {
         vec![]
     }
 
-    /// The actual `Layer` types corresponding to this tuple of [Chunk] types.
-    /// Can be of any type, completely disconnected from the type implementing [Dependencies]
-    /// (which can just be a ZST). It is the type of the first argument of [Chunk::compute].
+    /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
+    /// can be of any type to specify non-layer dependencies, too.
+    /// It is the type of the first argument of [Chunk::compute].
     type Dependencies: Default;
 
     /// For runtime debugging of your layers, you should return references to each of the
