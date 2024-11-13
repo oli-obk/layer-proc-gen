@@ -78,7 +78,7 @@ impl Reducible for Intersection {
     const RADIUS_RANGE: Range<i64> = 50..51;
 
     fn radius(&self) -> i64 {
-        50
+        15
     }
 
     fn position(&self) -> Point2d {
