@@ -1,6 +1,6 @@
 use crate::{
     vec2::{Abs, Num, Point2d},
-    Chunk, Dependencies,
+    Chunk,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -227,11 +227,7 @@ impl<C: Chunk> RollingGrid<C> {
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    pub fn get_or_compute(
-        &self,
-        pos: GridPoint<C>,
-        layer: &<C::Dependencies as Dependencies>::Layer,
-    ) -> C {
+    pub fn get_or_compute(&self, pos: GridPoint<C>, layer: &C::Dependencies) -> C {
         let now = self.time.get();
         self.time.set(now.checked_add(1).unwrap());
         // Find existing entry and bump its last use, or

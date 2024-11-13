@@ -14,14 +14,22 @@ impl Chunk for TheChunk {
     fn compute(_layer: &Self::Dependencies, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
     }
+    fn debug((): &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
+        vec![]
+    }
 }
 
 #[derive(Clone, Default)]
 struct Player;
 
+#[derive(Default, Clone)]
+struct PlayerDeps {
+    layer: Layer<TheChunk>,
+}
+
 impl Chunk for Player {
     type LayerStore<T> = T;
-    type Dependencies = (TheChunk,);
+    type Dependencies = PlayerDeps;
 
     const GRID_SIZE: Point2d<u8> = Point2d::splat(0);
 
@@ -29,12 +37,13 @@ impl Chunk for Player {
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
-    fn compute(
-        (layer,): &<Self::Dependencies as Dependencies>::Layer,
-        index: GridPoint<Self>,
-    ) -> Self {
-        for _ in layer.get_range(Self::bounds(index)) {}
+    fn compute(deps: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        for _ in deps.layer.get_range(Self::bounds(index)) {}
         Player
+    }
+
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
+        vec![&deps.layer]
     }
 }
 
@@ -43,7 +52,7 @@ struct MapChunk;
 
 impl Chunk for MapChunk {
     type LayerStore<T> = T;
-    type Dependencies = (TheChunk,);
+    type Dependencies = PlayerDeps;
 
     const SIZE: Point2d<u8> = Point2d::splat(0);
 
@@ -51,12 +60,13 @@ impl Chunk for MapChunk {
 
     const GRID_OVERLAP: u8 = 1;
 
-    fn compute(
-        (layer,): &<Self::Dependencies as Dependencies>::Layer,
-        index: GridPoint<Self>,
-    ) -> Self {
-        for _ in layer.get_range(Self::bounds(index)) {}
+    fn compute(deps: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        for _ in deps.layer.get_range(Self::bounds(index)) {}
         MapChunk
+    }
+
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
+        vec![&deps.layer]
     }
 }
 
@@ -78,10 +88,10 @@ fn double_assign_chunk() {
 
 #[test]
 fn create_player() {
-    let the_layer = Layer::<TheChunk>::new(());
-    let player = Layer::<Player>::new((the_layer.clone(),));
+    let the_layer = PlayerDeps::default();
+    let player = Layer::<Player>::new(the_layer.clone());
     let player_pos = Point2d { x: 42, y: 99 };
     player.ensure_loaded_in_bounds(Bounds::point(player_pos));
-    let map = Layer::<MapChunk>::new((the_layer,));
+    let map = Layer::<MapChunk>::new(the_layer.clone());
     map.ensure_loaded_in_bounds(Bounds::point(player_pos));
 }

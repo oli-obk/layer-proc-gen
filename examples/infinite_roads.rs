@@ -98,24 +98,17 @@ struct ReducedLocationsDeps {
     cities: Layer<Cities>,
 }
 
-impl Dependencies for ReducedLocations {
-    type Layer = ReducedLocationsDeps;
-
-    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug(), deps.cities.debug()]
-    }
-}
-
 impl Chunk for ReducedLocations {
     type LayerStore<T> = Arc<T>;
-    type Dependencies = Self;
+    type Dependencies = ReducedLocationsDeps;
+
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
         ReducedLocationsDeps {
             intersections,
             cities,
-        }: &<Self::Dependencies as Dependencies>::Layer,
+        }: &Self::Dependencies,
         index: GridPoint<Self>,
     ) -> Self {
         let bounds = Self::bounds(index);
@@ -158,6 +151,10 @@ impl Chunk for ReducedLocations {
             )
             .collect()
     }
+
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug(), deps.cities.debug()]
+    }
 }
 
 #[derive(PartialEq, Debug, Default, Clone)]
@@ -170,23 +167,12 @@ struct RoadsDeps {
     intersections: Layer<ReducedLocations>,
 }
 
-impl Dependencies for Roads {
-    type Layer = RoadsDeps;
-
-    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug()]
-    }
-}
-
 impl Chunk for Roads {
     type LayerStore<T> = T;
-    type Dependencies = Self;
+    type Dependencies = RoadsDeps;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
-    fn compute(
-        RoadsDeps { intersections }: &<Self::Dependencies as Dependencies>::Layer,
-        index: GridPoint<Self>,
-    ) -> Self {
+    fn compute(RoadsDeps { intersections }: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let roads = gen_roads(
             intersections
                 .get_moore_neighborhood(index.into_same_chunk_size())
@@ -200,6 +186,10 @@ impl Chunk for Roads {
 
     fn debug_contents(&self) -> Vec<DebugContent> {
         self.roads.iter().copied().map(DebugContent::from).collect()
+    }
+
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug()]
     }
 }
 
@@ -276,23 +266,15 @@ struct HighwayDeps {
     intersections: Layer<ReducedLocations>,
 }
 
-impl Dependencies for Highways {
-    type Layer = HighwayDeps;
-
-    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug()]
-    }
-}
-
 impl Chunk for Highways {
     type LayerStore<T> = T;
-    type Dependencies = Highways;
+    type Dependencies = HighwayDeps;
     const SIZE: Point2d<u8> = Cities::SIZE;
 
     fn compute(
         HighwayDeps {
             intersections: locations,
-        }: &<Self::Dependencies as Dependencies>::Layer,
+        }: &Self::Dependencies,
         index: GridPoint<Self>,
     ) -> Self {
         let roads = gen_roads(
@@ -357,6 +339,10 @@ impl Chunk for Highways {
             .iter()
             .map(|highway| DebugContent::Line(highway.line))
             .collect()
+    }
+
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug()]
     }
 }
 
@@ -432,13 +418,22 @@ struct PlayerViewData {
 #[derive(Clone, Default)]
 struct PlayerView(Arc<PlayerViewData>);
 
+#[derive(Default)]
+struct PlayerDeps {
+    city_roads: Layer<Roads>,
+    highways: Layer<Highways>,
+}
+
 impl Chunk for PlayerView {
     type LayerStore<T> = Arc<T>;
 
-    type Dependencies = (Roads, Highways);
+    type Dependencies = PlayerDeps;
 
     fn compute(
-        (city_roads, highways): &<Self::Dependencies as Dependencies>::Layer,
+        PlayerDeps {
+            city_roads,
+            highways,
+        }: &Self::Dependencies,
         index: GridPoint<Self>,
     ) -> Self {
         let mut roads = vec![];
@@ -488,6 +483,15 @@ impl Chunk for PlayerView {
             }))
             .collect()
     }
+
+    fn debug(
+        PlayerDeps {
+            city_roads,
+            highways,
+        }: &Self::Dependencies,
+    ) -> Vec<&dyn DynLayer> {
+        vec![city_roads, highways]
+    }
 }
 
 #[macroquad::main("layer proc gen demo")]
@@ -499,7 +503,10 @@ async fn main() {
     let highways = Layer::new(HighwayDeps {
         intersections: locations.clone(),
     });
-    let mut player = Player::new(Layer::new((roads, highways)));
+    let mut player = Player::new(Layer::new(PlayerDeps {
+        city_roads: roads,
+        highways,
+    }));
 
     let start_city = locations
         .cities
@@ -511,7 +518,7 @@ async fn main() {
         .expect("you wont the lottery, no cities in a 5x5 grid");
     let start_road = player
         .view
-        .0
+        .city_roads
         .get_range(Bounds::point(start_city.center).pad(Point2d::splat(start_city.size)))
         .find_map(|c| c.roads.iter().copied().next())
         .expect("you wont the lottery, no roads in a city");
@@ -772,7 +779,7 @@ async fn render_map(player: &Player) {
         clear_background(DARKGREEN);
         let pos = player.pos();
         let range = Bounds::point(pos).pad(Point2d::splat(10000));
-        let highways = &player.view.1;
+        let highways = &player.view.highways;
         for highways in highways.get_range(range) {
             for highway in highways.roads.iter() {
                 let Line { start, end } = highway.line;

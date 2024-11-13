@@ -13,7 +13,7 @@
 //! As an example, here's a layer that generates a point at its center:
 //!
 //! ```rust
-//! use layer_proc_gen::{Chunk, GridPoint, Point2d};
+//! use layer_proc_gen::{Chunk, GridPoint, Point2d, debug::DynLayer};
 //!
 //! #[derive(Clone, Default)]
 //! struct MyChunk {
@@ -27,6 +27,7 @@
 //!         let center = Self::bounds(index).center();
 //!         MyChunk { center }
 //!     }
+//!     fn debug((): &Self::Dependencies) -> Vec<&dyn DynLayer> { vec![] }
 //! }
 //! ```
 //!
@@ -46,54 +47,6 @@ pub use vec2::{Bounds, Point2d};
 pub mod debug;
 pub mod generic_layers;
 
-/// A list of [Chunk] types that a [Layer] depends on for computing
-/// its own chunks.
-///
-/// When you have 3 or fewer dependencies, using a tuple is convenient, but for more
-/// dependencies, explicitly giving them names is better, so you need to implement this
-/// trait for your own dependency struct.
-///
-/// This is also useful if you have non-layer dependencies that you want to specify (e.g. for
-/// loading things from files or the network, or generating them in a non-chunk-based way).
-pub trait Dependencies {
-    /// The actual `Layer` types corresponding to this tuple of [Chunk] types.
-    /// Can be of any type, completely disconnected from the type implementing [Dependencies]
-    /// (which can just be a ZST). It is the type of the first argument of [Chunk::compute].
-    type Layer: Default;
-
-    /// For runtime debugging of your layers, you should return references to each of the
-    /// layer types within your dependencies.
-    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer>;
-}
-
-macro_rules! layer {
-    ($($t:ident,)*) => {
-        impl<$($t: Chunk,)*> Dependencies
-            for ($($t,)*)
-        {
-            type Layer = ($(Layer<$t>,)*);
-            fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
-                #[allow(non_snake_case)]
-                let ($($t,)*) = deps;
-                vec![
-                    $($t,)*
-                ]
-            }
-        }
-    };
-}
-macro_rules! layers {
-    ($($first:ident,)* =>) => {
-        layer!($($first,)*);
-    };
-    ($($first:ident,)* => $next:ident, $($t:ident,)*) => {
-        layer!($($first,)*);
-        layers!($($first,)* $next, => $($t,)*);
-    };
-}
-
-layers!(=> T, U, V,);
-
 /// The entry point to access the chunks of a layer.
 ///
 /// It exposes various convenience accessors, like iterating over areas in
@@ -103,7 +56,7 @@ pub struct Layer<C: Chunk> {
 }
 
 impl<C: Chunk> Deref for Layer<C> {
-    type Target = <C::Dependencies as Dependencies>::Layer;
+    type Target = C::Dependencies;
 
     fn deref(&self) -> &Self::Target {
         &self.layer.borrow().1
@@ -122,7 +75,7 @@ impl<C: Chunk> Default for Layer<C> {
 impl<C: Chunk> Layer<C> {
     /// Create a new layer, manually specifying the dependencies.
     /// This is useful if you want to share dependencies with another layer.
-    pub fn new(value: <C::Dependencies as Dependencies>::Layer) -> Self {
+    pub fn new(value: C::Dependencies) -> Self {
         Layer {
             layer: Store::<C>::from((RollingGrid::default(), value)),
         }
@@ -145,7 +98,7 @@ where
 #[expect(type_alias_bounds)]
 type Store<C: Chunk> = C::LayerStore<Tuple<C>>;
 #[expect(type_alias_bounds)]
-type Tuple<C: Chunk> = (RollingGrid<C>, <C::Dependencies as Dependencies>::Layer);
+type Tuple<C: Chunk> = (RollingGrid<C>, C::Dependencies);
 
 impl<C: Chunk> Layer<C> {
     /// Eagerly compute all chunks in the given bounds (in world coordinates).
@@ -200,7 +153,7 @@ impl<C: Chunk> Layer<C> {
     }
 
     fn debug_deps(&self) -> Vec<&dyn DynLayer> {
-        C::Dependencies::debug(self)
+        C::debug(self)
     }
 }
 
@@ -220,15 +173,11 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// they can get stored directly without the `Arc` indirection.
     type LayerStore<T>: Borrow<T> + From<T>;
 
-    /// Tuple of `LayerDependency` that `compute` needs access to.
-    type Dependencies: Dependencies;
-
     /// Width and height of the chunk (in powers of two);
     const SIZE: Point2d<u8> = Point2d::splat(8);
 
     /// Compute a chunk from its dependencies
-    fn compute(layer: &<Self::Dependencies as Dependencies>::Layer, index: GridPoint<Self>)
-        -> Self;
+    fn compute(layer: &Self::Dependencies, index: GridPoint<Self>) -> Self;
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
@@ -256,7 +205,7 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     }
 
     /// Convenience helper to create a `Layer<Self>`.
-    fn default_layer() -> <Self::Dependencies as Dependencies>::Layer {
+    fn default_layer() -> Self::Dependencies {
         Default::default()
     }
 
@@ -265,6 +214,15 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     fn debug_contents(&self) -> Vec<DebugContent> {
         vec![]
     }
+
+    /// The actual `Layer` types corresponding to this tuple of [Chunk] types.
+    /// Can be of any type, completely disconnected from the type implementing [Dependencies]
+    /// (which can just be a ZST). It is the type of the first argument of [Chunk::compute].
+    type Dependencies: Default;
+
+    /// For runtime debugging of your layers, you should return references to each of the
+    /// layer types within your dependencies.
+    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer>;
 }
 
 mod rolling_grid;
