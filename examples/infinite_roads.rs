@@ -152,8 +152,13 @@ impl Chunk for ReducedLocations {
             .collect()
     }
 
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug(), deps.cities.debug()]
+    fn debug(
+        ReducedLocationsDeps {
+            intersections,
+            cities,
+        }: &Self::Dependencies,
+    ) -> Vec<&dyn DynLayer> {
+        vec![intersections, cities]
     }
 }
 
@@ -187,8 +192,8 @@ impl Chunk for Roads {
         self.roads.iter().copied().map(DebugContent::from).collect()
     }
 
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug()]
+    fn debug(RoadsDeps { intersections }: &Self::Dependencies) -> Vec<&dyn DynLayer> {
+        vec![intersections]
     }
 }
 
@@ -339,8 +344,8 @@ impl Chunk for Highways {
             .collect()
     }
 
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer> {
-        vec![deps.intersections.debug()]
+    fn debug(HighwayDeps { intersections }: &Self::Dependencies) -> Vec<&dyn DynLayer> {
+        vec![intersections]
     }
 }
 
@@ -533,10 +538,10 @@ async fn main() {
             return;
         }
         if is_key_pressed(KeyCode::F3) {
-            render_debug_layers(vec![player.view.debug()]).await;
+            render_debug_layers(vec![&player.view]).await;
         }
         if is_key_pressed(KeyCode::F4) {
-            render_3d_layers(vec![player.view.debug()]).await;
+            render_3d_layers(vec![&player.view]).await;
         }
         if is_key_pressed(KeyCode::M) {
             render_map(&player).await
@@ -706,7 +711,7 @@ async fn main() {
         };
 
         if debug_chunks {
-            draw_layer_debug(player.view.debug(), DARKPURPLE);
+            draw_layer_debug(&player.view, DARKPURPLE);
         }
 
         if debug_view {

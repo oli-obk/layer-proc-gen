@@ -150,11 +150,6 @@ impl<C: Chunk> Layer<C> {
         })
     }
 
-    /// Convenience method for creating a dyn reference of a [Layer].
-    pub fn debug(&self) -> &dyn DynLayer {
-        self
-    }
-
     fn debug_deps(&self) -> Vec<&dyn DynLayer> {
         C::debug(self)
     }
