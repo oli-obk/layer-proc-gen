@@ -22,9 +22,11 @@ impl Chunk for TheChunk {
 #[derive(Clone, Default)]
 struct Player;
 
-#[derive(Default, Clone)]
-struct PlayerDeps {
-    layer: Layer<TheChunk>,
+deps! {
+    #[derive(Clone, Default)]
+    struct PlayerDeps {
+        layer: TheChunk,
+    }
 }
 
 impl Chunk for Player {

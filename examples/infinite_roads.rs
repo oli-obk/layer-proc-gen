@@ -92,10 +92,12 @@ struct ReducedLocations {
     trees: ArrayVec<Point2d, 7>,
 }
 
-#[derive(Default)]
-struct ReducedLocationsDeps {
-    intersections: Layer<ReducedUniformPoint<Intersection, 6, 0>>,
-    cities: Layer<Cities>,
+deps! {
+    #[derive(Default)]
+    struct ReducedLocationsDeps {
+        intersections: ReducedUniformPoint<Intersection, 6, 0>,
+        cities: Cities,
+    }
 }
 
 impl Chunk for ReducedLocations {
@@ -167,8 +169,10 @@ struct Roads {
     roads: Arc<Vec<Line>>,
 }
 
-struct RoadsDeps {
-    intersections: Layer<ReducedLocations>,
+deps! {
+    struct RoadsDeps {
+        intersections: ReducedLocations,
+    }
 }
 
 impl Chunk for Roads {
@@ -265,8 +269,10 @@ struct Highways {
 
 type Cities = ReducedUniformPoint<City, 11, 1>;
 
-struct HighwayDeps {
-    intersections: Layer<ReducedLocations>,
+deps! {
+    struct HighwayDeps {
+        intersections: ReducedLocations,
+    }
 }
 
 impl Chunk for Highways {
@@ -421,9 +427,11 @@ struct PlayerViewData {
 #[derive(Clone, Default)]
 struct PlayerView(Arc<PlayerViewData>);
 
-struct PlayerDeps {
-    city_roads: Layer<Roads>,
-    highways: Layer<Highways>,
+deps! {
+    struct PlayerDeps {
+        city_roads: Roads,
+        highways: Highways,
+    }
 }
 
 impl Chunk for PlayerView {

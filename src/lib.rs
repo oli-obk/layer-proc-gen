@@ -47,6 +47,17 @@ pub use vec2::{Bounds, Point2d};
 pub mod debug;
 pub mod generic_layers;
 
+#[macro_export]
+/// Generate a struct where all fields are wrapped in `Layer`
+macro_rules! deps {
+    ($(#[$meta:meta])* struct $name:ident {$($field:ident: $ty:ty,)*}) => {
+        $(#[$meta])*
+        struct $name {
+            $($field: Layer<$ty>,)*
+        }
+    }
+}
+
 /// The entry point to access the chunks of a layer.
 ///
 /// It exposes various convenience accessors, like iterating over areas in
