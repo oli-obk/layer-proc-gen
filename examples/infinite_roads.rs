@@ -165,17 +165,30 @@ struct Roads {
     roads: Arc<Vec<Line>>,
 }
 
+#[derive(Default)]
+struct RoadsDeps {
+    intersections: Layer<ReducedLocations>,
+}
+
+impl Dependencies for Roads {
+    type Layer = RoadsDeps;
+
+    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug()]
+    }
+}
+
 impl Chunk for Roads {
     type LayerStore<T> = T;
-    type Dependencies = (ReducedLocations,);
+    type Dependencies = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
-        (locations,): &<Self::Dependencies as Dependencies>::Layer,
+        RoadsDeps { intersections }: &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let roads = gen_roads(
-            locations
+            intersections
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |&p| p,
@@ -480,7 +493,9 @@ impl Chunk for PlayerView {
 #[macroquad::main("layer proc gen demo")]
 async fn main() {
     let locations = Layer::<ReducedLocations>::default();
-    let roads = Layer::new((locations.clone(),));
+    let roads = Layer::new(RoadsDeps {
+        intersections: locations.clone(),
+    });
     let highways = Layer::new(HighwayDeps {
         intersections: locations.clone(),
     });
