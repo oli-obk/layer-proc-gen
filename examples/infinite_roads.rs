@@ -92,18 +92,35 @@ struct ReducedLocations {
     trees: ArrayVec<Point2d, 7>,
 }
 
+#[derive(Default)]
+struct ReducedLocationsDeps {
+    intersections: Layer<ReducedUniformPoint<Intersection, 6, 0>>,
+    cities: Layer<Cities>,
+}
+
+impl Dependencies for ReducedLocations {
+    type Layer = ReducedLocationsDeps;
+
+    fn debug(deps: &Self::Layer) -> Vec<&dyn DynLayer> {
+        vec![deps.intersections.debug(), deps.cities.debug()]
+    }
+}
+
 impl Chunk for ReducedLocations {
     type LayerStore<T> = Arc<T>;
-    type Dependencies = (ReducedUniformPoint<Intersection, 6, 0>, Cities);
+    type Dependencies = Self;
     const SIZE: Point2d<u8> = Point2d::splat(6);
 
     fn compute(
-        (raw_locations, cities): &<Self::Dependencies as Dependencies>::Layer,
+        ReducedLocationsDeps {
+            intersections,
+            cities,
+        }: &<Self::Dependencies as Dependencies>::Layer,
         index: GridPoint<Self>,
     ) -> Self {
         let bounds = Self::bounds(index);
         let center = bounds.center();
-        let points = raw_locations
+        let points = intersections
             .get_or_compute(index.into_same_chunk_size())
             .points
             .iter()
@@ -267,7 +284,7 @@ impl Chunk for Highways {
     ) -> Self {
         let roads = gen_roads(
             locations
-                .1
+                .cities
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
             |p| p.center,
@@ -470,7 +487,7 @@ async fn main() {
     let mut player = Player::new(Layer::new((roads, highways)));
 
     let start_city = locations
-        .1
+        .cities
         .get_grid_range(
             Bounds::point(Point2d::splat(GridIndex::ZERO)).pad(Point2d::splat(GridIndex::TWO)),
         )
@@ -756,7 +773,7 @@ async fn render_map(player: &Player) {
                 );
             }
         }
-        for chunk in highways.intersections.1.get_range(range) {
+        for chunk in highways.intersections.cities.get_range(range) {
             for city in &chunk.points {
                 let pos = city.center - pos;
                 draw_circle(pos.x as f32, pos.y as f32, city.size as f32, WHITE);
