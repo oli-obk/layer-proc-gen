@@ -162,7 +162,6 @@ struct Roads {
     roads: Arc<Vec<Line>>,
 }
 
-#[derive(Default)]
 struct RoadsDeps {
     intersections: Layer<ReducedLocations>,
 }
@@ -261,7 +260,6 @@ struct Highways {
 
 type Cities = ReducedUniformPoint<City, 11, 1>;
 
-#[derive(Default)]
 struct HighwayDeps {
     intersections: Layer<ReducedLocations>,
 }
@@ -418,7 +416,6 @@ struct PlayerViewData {
 #[derive(Clone, Default)]
 struct PlayerView(Arc<PlayerViewData>);
 
-#[derive(Default)]
 struct PlayerDeps {
     city_roads: Layer<Roads>,
     highways: Layer<Highways>,

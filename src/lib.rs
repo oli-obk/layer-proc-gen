@@ -63,7 +63,10 @@ impl<C: Chunk> Deref for Layer<C> {
     }
 }
 
-impl<C: Chunk> Default for Layer<C> {
+impl<C: Chunk> Default for Layer<C>
+where
+    C::Dependencies: Default,
+{
     /// Create an entirely new layer and its dependencies.
     /// The dependencies will not be connected to any other dependencies
     /// of the same type.
@@ -204,11 +207,6 @@ pub trait Chunk: Sized + Default + Clone + 'static {
         bounds.pad(Self::SIZE.map(|i| 1 << i))
     }
 
-    /// Convenience helper to create a `Layer<Self>`.
-    fn default_layer() -> Self::Dependencies {
-        Default::default()
-    }
-
     /// Additional data to show in debug views. Can be left empty to just
     /// show chunk boundaries.
     fn debug_contents(&self) -> Vec<DebugContent> {
@@ -218,7 +216,7 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
     /// can be of any type to specify non-layer dependencies, too.
     /// It is the type of the first argument of [Chunk::compute].
-    type Dependencies: Default;
+    type Dependencies;
 
     /// For runtime debugging of your layers, you should return references to each of the
     /// layer types within your dependencies.
