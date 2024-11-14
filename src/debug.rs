@@ -5,18 +5,16 @@ use std::{any::TypeId, borrow::Borrow as _};
 use crate::{
     rolling_grid::RollingGrid,
     vec2::{Bounds, Line, Point2d},
-    Chunk, Layer,
+    Chunk, Dependencies as _, Layer,
 };
 
 /// Runtime representation of any chunk type.
+/// It is perfectly valid to not return anything if the
+/// data is not useful for debug views.
 pub trait Debug {
     /// Render the elements of this chunk type.
-    fn debug(&self) -> Vec<DebugContent>;
-}
-
-impl<C: Chunk> Debug for C {
     fn debug(&self) -> Vec<DebugContent> {
-        self.debug_contents()
+        vec![]
     }
 }
 
@@ -63,7 +61,7 @@ pub trait DynLayer {
     fn name(&self) -> String;
 }
 
-impl<C: Chunk> DynLayer for Layer<C> {
+impl<C: Chunk + Debug> DynLayer for Layer<C> {
     fn iter_all_loaded(&self) -> Box<dyn Iterator<Item = (Bounds, Box<dyn Debug + 'static>)> + '_> {
         Box::new(
             self.layer
@@ -80,7 +78,7 @@ impl<C: Chunk> DynLayer for Layer<C> {
     }
 
     fn deps(&self) -> Vec<&dyn DynLayer> {
-        self.debug_deps()
+        self.debug()
     }
 
     fn ident(&self) -> (usize, TypeId) {

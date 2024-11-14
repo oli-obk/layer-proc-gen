@@ -4,7 +4,7 @@ use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
-    debug::DebugContent,
+    debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},
     Chunk,
@@ -58,8 +58,10 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SI
             points: points.map(P::from).collect(),
         }
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for UniformPoint<P, SIZE, SALT> {
+    fn debug(&self) -> Vec<DebugContent> {
         self.points.iter().flat_map(Reducible::debug).collect()
     }
 }

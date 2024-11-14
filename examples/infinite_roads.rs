@@ -1,6 +1,6 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
-use debug::{DebugContent, DynLayer};
+use debug::{Debug, DebugContent, DynLayer};
 use generic_layers::{rng_for_point, ReducedUniformPoint, Reducible};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
@@ -141,8 +141,10 @@ impl Chunk for ReducedLocations {
             }
         }
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl Debug for ReducedLocations {
+    fn debug(&self) -> Vec<DebugContent> {
         self.trees
             .iter()
             .map(|&center| DebugContent::Circle { center, radius: 8. })
@@ -182,8 +184,10 @@ impl Chunk for Roads {
         .into();
         Roads { roads }
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl Debug for Roads {
+    fn debug(&self) -> Vec<DebugContent> {
         self.roads.iter().copied().map(DebugContent::from).collect()
     }
 }
@@ -324,8 +328,10 @@ impl Chunk for Highways {
             roads: Arc::new(roads),
         }
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl Debug for Highways {
+    fn debug(&self) -> Vec<DebugContent> {
         self.roads
             .iter()
             .map(|highway| DebugContent::Line(highway.line))
@@ -459,8 +465,10 @@ impl Chunk for PlayerView {
 
         PlayerView(Arc::new(PlayerViewData { roads, trees }))
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl Debug for PlayerView {
+    fn debug(&self) -> Vec<DebugContent> {
         self.0
             .roads
             .iter()

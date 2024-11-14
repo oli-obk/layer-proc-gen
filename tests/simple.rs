@@ -16,6 +16,8 @@ impl Chunk for TheChunk {
     }
 }
 
+impl debug::Debug for TheChunk {}
+
 #[derive(Clone, Default)]
 struct Player;
 

@@ -38,7 +38,7 @@
 
 use std::{borrow::Borrow, ops::Deref};
 
-use debug::{DebugContent, DynLayer};
+use debug::DynLayer;
 use rolling_grid::RollingGrid;
 pub use rolling_grid::{GridIndex, GridPoint};
 pub use vec2::{Bounds, Point2d};
@@ -82,7 +82,7 @@ impl Dependencies for () {
     }
 }
 
-impl<C: Chunk> Dependencies for Layer<C> {
+impl<C: Chunk + debug::Debug> Dependencies for Layer<C> {
     fn debug(&self) -> Vec<&dyn DynLayer> {
         vec![self]
     }
@@ -190,10 +190,6 @@ impl<C: Chunk> Layer<C> {
             self.get_or_compute(index)
         })
     }
-
-    fn debug_deps(&self) -> Vec<&dyn DynLayer> {
-        <C::Dependencies as Dependencies>::debug(self)
-    }
 }
 
 /// Chunks are rectangular regions of the same size that make up a layer in a grid shape.
@@ -241,12 +237,6 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// Pad by a chunk size to make sure we see effects from the neighboring chunks
     fn vision_range(bounds: Bounds) -> Bounds {
         bounds.pad(Self::SIZE.map(|i| 1 << i))
-    }
-
-    /// Additional data to show in debug views. Can be left empty to just
-    /// show chunk boundaries.
-    fn debug_contents(&self) -> Vec<DebugContent> {
-        vec![]
     }
 
     /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but

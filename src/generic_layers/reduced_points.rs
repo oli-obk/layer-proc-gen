@@ -3,7 +3,7 @@ use std::{ops::Range, sync::Arc};
 use arrayvec::ArrayVec;
 
 use crate::{
-    debug::DebugContent,
+    debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
     Chunk, Layer,
@@ -85,8 +85,10 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
         }
         ReducedUniformPoint { points }
     }
+}
 
-    fn debug_contents(&self) -> Vec<DebugContent> {
+impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for ReducedUniformPoint<P, SIZE, SALT> {
+    fn debug(&self) -> Vec<DebugContent> {
         self.points
             .iter()
             .flat_map(|p| {
