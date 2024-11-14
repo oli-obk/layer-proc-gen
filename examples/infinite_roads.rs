@@ -681,7 +681,7 @@ async fn main() {
         let draw_layer_debug = |layer: &dyn DynLayer, color| {
             for (current_chunk, chunk) in layer.iter_all_loaded() {
                 draw_bounds(current_chunk, color);
-                for debug in chunk.render() {
+                for debug in chunk.debug() {
                     draw_debug_content(debug, debug_zoom, color)
                 }
             }
@@ -883,7 +883,7 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
                 draw_line_3d(min, vec3(max.x, min.y, pos.z), border_color);
                 draw_line_3d(vec3(max.x, min.y, pos.z), max, border_color);
                 draw_line_3d(vec3(min.x, max.y, pos.z), max, border_color);
-                for thing in chunk.render() {
+                for thing in chunk.debug() {
                     match thing {
                         DebugContent::Line(line) => draw_line_3d(
                             pos + point_to_3d(line.start),

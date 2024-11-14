@@ -9,13 +9,13 @@ use crate::{
 };
 
 /// Runtime representation of any chunk type.
-pub trait DynChunk {
+pub trait Debug {
     /// Render the elements of this chunk type.
-    fn render(&self) -> Vec<DebugContent>;
+    fn debug(&self) -> Vec<DebugContent>;
 }
 
-impl<C: Chunk> DynChunk for C {
-    fn render(&self) -> Vec<DebugContent> {
+impl<C: Chunk> Debug for C {
+    fn debug(&self) -> Vec<DebugContent> {
         self.debug_contents()
     }
 }
@@ -51,9 +51,7 @@ impl From<Line> for DebugContent {
 pub trait DynLayer {
     /// Iterate only over the chunks that have been generated already and not unloaded yet
     /// to make space for new ones.
-    fn iter_all_loaded(
-        &self,
-    ) -> Box<dyn Iterator<Item = (Bounds, Box<dyn DynChunk + 'static>)> + '_>;
+    fn iter_all_loaded(&self) -> Box<dyn Iterator<Item = (Bounds, Box<dyn Debug + 'static>)> + '_>;
 
     /// Iterate over the dependency layers of this layer.
     fn deps(&self) -> Vec<&dyn DynLayer>;
@@ -66,9 +64,7 @@ pub trait DynLayer {
 }
 
 impl<C: Chunk> DynLayer for Layer<C> {
-    fn iter_all_loaded(
-        &self,
-    ) -> Box<dyn Iterator<Item = (Bounds, Box<dyn DynChunk + 'static>)> + '_> {
+    fn iter_all_loaded(&self) -> Box<dyn Iterator<Item = (Bounds, Box<dyn Debug + 'static>)> + '_> {
         Box::new(
             self.layer
                 .borrow()
@@ -77,7 +73,7 @@ impl<C: Chunk> DynLayer for Layer<C> {
                 .map(|(index, chunk)| {
                     (
                         C::bounds(index),
-                        Box::new(chunk) as Box<dyn DynChunk + 'static>,
+                        Box::new(chunk) as Box<dyn Debug + 'static>,
                     )
                 }),
         )
