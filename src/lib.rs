@@ -27,7 +27,6 @@
 //!         let center = Self::bounds(index).center();
 //!         MyChunk { center }
 //!     }
-//!     fn debug((): &Self::Dependencies) -> Vec<&dyn DynLayer> { vec![] }
 //! }
 //! ```
 //!
@@ -55,6 +54,37 @@ macro_rules! deps {
         struct $name {
             $($field: Layer<$ty>,)*
         }
+        impl $crate::Dependencies for $name {
+            fn debug(&self) -> Vec<&dyn $crate::debug::DynLayer> {
+                let $name {
+                    $($field,)*
+                } = self;
+                vec![ $($field,)*]
+            }
+        }
+    }
+}
+
+/// A struct that defines the dependencies of your [Chunk].
+/// Usually generated for structs via the [deps] macro, but you can manually define
+/// it in case you have non-[Layer] dependencies.
+///
+/// If you layer has no dependencies, you can use the `()` type instead.
+pub trait Dependencies {
+    /// For runtime debugging of your layers, you should return references to each of the
+    /// layer types within your dependencies.
+    fn debug(&self) -> Vec<&dyn DynLayer>;
+}
+
+impl Dependencies for () {
+    fn debug(&self) -> Vec<&dyn DynLayer> {
+        vec![]
+    }
+}
+
+impl<C: Chunk> Dependencies for Layer<C> {
+    fn debug(&self) -> Vec<&dyn DynLayer> {
+        vec![self]
     }
 }
 
@@ -162,7 +192,7 @@ impl<C: Chunk> Layer<C> {
     }
 
     fn debug_deps(&self) -> Vec<&dyn DynLayer> {
-        C::debug(self)
+        <C::Dependencies as Dependencies>::debug(self)
     }
 }
 
@@ -222,11 +252,7 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
     /// can be of any type to specify non-layer dependencies, too.
     /// It is the type of the first argument of [Chunk::compute].
-    type Dependencies;
-
-    /// For runtime debugging of your layers, you should return references to each of the
-    /// layer types within your dependencies.
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn DynLayer>;
+    type Dependencies: Dependencies;
 }
 
 mod rolling_grid;

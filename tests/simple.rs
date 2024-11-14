@@ -14,9 +14,6 @@ impl Chunk for TheChunk {
     fn compute(_layer: &Self::Dependencies, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
     }
-    fn debug((): &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
-        vec![]
-    }
 }
 
 #[derive(Clone, Default)]
@@ -43,10 +40,6 @@ impl Chunk for Player {
         for _ in deps.layer.get_range(Self::bounds(index)) {}
         Player
     }
-
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
-        vec![&deps.layer]
-    }
 }
 
 #[derive(Clone, Default)]
@@ -65,10 +58,6 @@ impl Chunk for MapChunk {
     fn compute(deps: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         for _ in deps.layer.get_range(Self::bounds(index)) {}
         MapChunk
-    }
-
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn debug::DynLayer> {
-        vec![&deps.layer]
     }
 }
 

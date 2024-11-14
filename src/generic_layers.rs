@@ -62,10 +62,6 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SI
     fn debug_contents(&self) -> Vec<DebugContent> {
         self.points.iter().flat_map(Reducible::debug).collect()
     }
-
-    fn debug((): &Self::Dependencies) -> Vec<&dyn crate::debug::DynLayer> {
-        vec![]
-    }
 }
 
 fn generate_points<const SALT: u64, C: Chunk + 'static>(

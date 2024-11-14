@@ -153,15 +153,6 @@ impl Chunk for ReducedLocations {
             )
             .collect()
     }
-
-    fn debug(
-        ReducedLocationsDeps {
-            intersections,
-            cities,
-        }: &Self::Dependencies,
-    ) -> Vec<&dyn DynLayer> {
-        vec![intersections, cities]
-    }
 }
 
 #[derive(PartialEq, Debug, Default, Clone)]
@@ -194,10 +185,6 @@ impl Chunk for Roads {
 
     fn debug_contents(&self) -> Vec<DebugContent> {
         self.roads.iter().copied().map(DebugContent::from).collect()
-    }
-
-    fn debug(RoadsDeps { intersections }: &Self::Dependencies) -> Vec<&dyn DynLayer> {
-        vec![intersections]
     }
 }
 
@@ -349,10 +336,6 @@ impl Chunk for Highways {
             .map(|highway| DebugContent::Line(highway.line))
             .collect()
     }
-
-    fn debug(HighwayDeps { intersections }: &Self::Dependencies) -> Vec<&dyn DynLayer> {
-        vec![intersections]
-    }
 }
 
 struct Player {
@@ -492,15 +475,6 @@ impl Chunk for PlayerView {
                 radius: 8.,
             }))
             .collect()
-    }
-
-    fn debug(
-        PlayerDeps {
-            city_roads,
-            highways,
-        }: &Self::Dependencies,
-    ) -> Vec<&dyn DynLayer> {
-        vec![city_roads, highways]
     }
 }
 

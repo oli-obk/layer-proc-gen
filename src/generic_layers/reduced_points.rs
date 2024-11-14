@@ -103,8 +103,4 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
             })
             .collect()
     }
-
-    fn debug(deps: &Self::Dependencies) -> Vec<&dyn crate::debug::DynLayer> {
-        vec![deps]
-    }
 }
