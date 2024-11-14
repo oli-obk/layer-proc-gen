@@ -267,14 +267,9 @@ impl Chunk for Highways {
     type Dependencies = HighwayDeps;
     const SIZE: Point2d<u8> = Cities::SIZE;
 
-    fn compute(
-        HighwayDeps {
-            intersections: locations,
-        }: &Self::Dependencies,
-        index: GridPoint<Self>,
-    ) -> Self {
+    fn compute(HighwayDeps { intersections }: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let roads = gen_roads(
-            locations
+            intersections
                 .cities
                 .get_moore_neighborhood(index.into_same_chunk_size())
                 .map(|chunk| chunk.points),
@@ -301,7 +296,7 @@ impl Chunk for Highways {
                     Chunk::pos_to_grid(p)
                         .to(Chunk::pos_to_grid(start))
                         .iter_all_touched_pixels(|index| {
-                            closest = locations
+                            closest = intersections
                                 .get_or_compute(index)
                                 .points
                                 .iter()
