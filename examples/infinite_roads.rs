@@ -177,6 +177,8 @@ impl Chunk for Roads {
         let roads = gen_roads(
             intersections
                 .get_moore_neighborhood(index.into_same_chunk_size())
+                .into_iter()
+                .flatten()
                 .map(|chunk| chunk.points),
             |&p| p,
             |&a, &b| a.to(b),
@@ -276,6 +278,8 @@ impl Chunk for Highways {
             intersections
                 .cities
                 .get_moore_neighborhood(index.into_same_chunk_size())
+                .into_iter()
+                .flatten()
                 .map(|chunk| chunk.points),
             |p| p.center,
             |a, b| {
