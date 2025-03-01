@@ -181,14 +181,7 @@ impl<C: Chunk> Layer<C> {
 
     /// Get a 3x3 array of chunks around a specific chunk
     pub fn get_moore_neighborhood(&self, index: GridPoint<C>) -> impl Iterator<Item = C> + '_ {
-        (0..9).map(move |i| {
-            let index = index
-                + GridPoint::new(
-                    GridIndex::from_raw(i % 3 - 1),
-                    GridIndex::from_raw(i / 3 - 1),
-                );
-            self.get_or_compute(index)
-        })
+        C::moore_neighborhood(index).map(|index| self.get_or_compute(index))
     }
 }
 
@@ -237,6 +230,17 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// Pad by a chunk size to make sure we see effects from the neighboring chunks
     fn vision_range(bounds: Bounds) -> Bounds {
         bounds.pad(Self::SIZE.map(|i| 1 << i))
+    }
+
+    /// Get 3x3 grid points around a central one
+    fn moore_neighborhood(index: GridPoint<Self>) -> impl Iterator<Item = GridPoint<Self>> {
+        (0..9).map(move |i| {
+            index
+                + GridPoint::new(
+                    GridIndex::from_raw(i % 3 - 1),
+                    GridIndex::from_raw(i / 3 - 1),
+                )
+        })
     }
 
     /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
