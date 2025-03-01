@@ -75,7 +75,7 @@ fn generate_points<const SALT: u64, C: Chunk + 'static>(
 ) -> impl Iterator<Item = Point2d> {
     let chunk_bounds = C::bounds(index);
     let mut rng = rng_for_point::<SALT, _>(index);
-    let n = poisson_1(rng.gen_range(0.0..=1.0)).into();
+    let n = poisson_1(rng.random_range(0.0..=1.0)).into();
     std::iter::from_fn(move || Some(chunk_bounds.sample(&mut rng))).take(n)
 }
 

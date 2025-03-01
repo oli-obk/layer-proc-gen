@@ -2,9 +2,9 @@
 
 use derive_more::derive::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 use rand::{
-    distributions::{
+    distr::{
+        StandardUniform,
         uniform::{SampleRange, SampleUniform},
-        Standard,
     },
     prelude::*,
 };
@@ -181,9 +181,9 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
     }
 }
 
-impl<T> Distribution<Point2d<T>> for Standard
+impl<T> Distribution<Point2d<T>> for StandardUniform
 where
-    Standard: Distribution<T>,
+    StandardUniform: Distribution<T>,
 {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Point2d<T> {
         Point2d {
@@ -361,8 +361,8 @@ impl<T: Copy + PartialEq + PartialOrd + SampleUniform> Bounds<T> {
     /// Generate a point within the bounds.
     pub fn sample<R: RngCore + ?Sized>(self, rng: &mut R) -> Point2d<T> {
         Point2d {
-            x: (self.min.x..self.max.x).sample_single(rng),
-            y: (self.min.y..self.max.y).sample_single(rng),
+            x: (self.min.x..self.max.x).sample_single(rng).unwrap(),
+            y: (self.min.y..self.max.y).sample_single(rng).unwrap(),
         }
     }
 
