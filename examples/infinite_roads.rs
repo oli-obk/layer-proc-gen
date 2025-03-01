@@ -619,6 +619,21 @@ async fn main() {
             );
         };
 
+        let draw_rect = |bounds: Bounds, color| {
+            if !debug_view {
+                return;
+            }
+            let min = point2screen(bounds.min);
+            let max = point2screen(bounds.max);
+            draw_rectangle(
+                min.x as f32,
+                min.y as f32,
+                (max.x - min.x) as f32,
+                (max.y - min.y) as f32,
+                color,
+            );
+        };
+
         let draw_line = |line: Line, thickness, color| {
             let start = point2screen(line.start);
             let end = point2screen(line.end);
@@ -712,7 +727,8 @@ async fn main() {
 
         player.car.draw();
 
-        let draw_debug_content = |debug: DebugContent, thickness, color| match debug {
+        let draw_debug_content = |debug: DebugContent, thickness, color, bounds| match debug {
+            DebugContent::Chunk => draw_rect(bounds, color),
             DebugContent::Line(line) => draw_line(line, thickness, color),
             DebugContent::Circle { center, radius } => {
                 let pos = point2screen(center);
@@ -727,7 +743,7 @@ async fn main() {
             for (current_chunk, chunk) in layer.iter_all_loaded() {
                 draw_bounds(current_chunk, color);
                 for debug in chunk.debug() {
-                    draw_debug_content(debug, debug_zoom, color)
+                    draw_debug_content(debug, debug_zoom, color, current_chunk)
                 }
             }
         };
@@ -930,6 +946,14 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
                 draw_line_3d(vec3(min.x, max.y, pos.z), max, border_color);
                 for thing in chunk.debug() {
                     match thing {
+                        DebugContent::Chunk => draw_poly(
+                            bounds.center().x as f32,
+                            bounds.center().y as f32,
+                            4,
+                            (bounds.max.x - bounds.min.x) as f32,
+                            0.,
+                            color,
+                        ),
                         DebugContent::Line(line) => draw_line_3d(
                             pos + point_to_3d(line.start),
                             pos + point_to_3d(line.end),

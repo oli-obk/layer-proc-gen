@@ -100,6 +100,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for ReducedUniformPoin
                 for debug in &mut debug {
                     // After reducing, the radius is irrelevant and it is nicer to represent it as a point.
                     match debug {
+                        DebugContent::Chunk => {}
                         DebugContent::Line(..) => {}
                         DebugContent::Circle { radius, .. } => *radius = 1.,
                         DebugContent::Text { .. } => {}

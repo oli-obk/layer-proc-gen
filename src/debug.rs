@@ -3,9 +3,9 @@
 use std::{any::TypeId, borrow::Borrow as _};
 
 use crate::{
+    Chunk, Dependencies as _, Layer,
     rolling_grid::RollingGrid,
     vec2::{Bounds, Line, Point2d},
-    Chunk, Dependencies as _, Layer,
 };
 
 /// Runtime representation of any chunk type.
@@ -20,6 +20,8 @@ pub trait Debug {
 
 /// An debug element of a chunk
 pub enum DebugContent {
+    /// Render a rectangle filling the entire chunk
+    Chunk,
     /// A line.
     Line(Line),
     /// A unfilled circle.
