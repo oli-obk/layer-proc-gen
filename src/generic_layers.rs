@@ -4,10 +4,10 @@ use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
+    Chunk,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},
-    Chunk,
 };
 
 /// How many points are in a chunk if the
@@ -52,11 +52,15 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SI
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute(_layer: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+    fn compute((): &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let points = generate_points::<SALT, Self>(index);
         Self {
             points: points.map(P::from).collect(),
         }
+    }
+
+    fn clear((): &Self::Dependencies, _index: GridPoint<Self>) {
+        // Nothing to do, we do not have dependencies
     }
 }
 

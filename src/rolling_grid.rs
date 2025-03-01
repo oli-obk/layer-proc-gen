@@ -1,6 +1,6 @@
 use crate::{
-    vec2::{Abs, Num, Point2d},
     Chunk,
+    vec2::{Abs, Num, Point2d},
 };
 use std::{
     cell::{Cell, RefCell},
@@ -230,26 +230,53 @@ impl<C: Chunk> RollingGrid<C> {
     pub fn get_or_compute(&self, pos: GridPoint<C>, layer: &C::Dependencies) -> C {
         let now = self.time.get();
         self.time.set(now.checked_add(1).unwrap());
-        // Find existing entry and bump its last use, or
-        // find an empty entry, or
-        // find the least recently accessed entry.
+        let free = match self.find_free_or_entry(pos, now) {
+            Ok(value) => value,
+            Err(p) => return p.chunk.borrow().clone(),
+        };
+        let chunk = C::compute(layer, pos);
+        free.pos.set(pos);
+        free.chunk.replace(chunk.clone());
+        free.last_access.set(now);
+        chunk
+    }
+
+    fn find_free_or_entry(
+        &self,
+        pos: Point2d<GridIndex<C>>,
+        now: u64,
+    ) -> Result<&ActiveCell<C>, &ActiveCell<C>> {
         let (mut free, mut rest) = self.access(pos).split_first().unwrap();
         while let Some((p, r)) = rest.split_first() {
             rest = r;
             if p.last_access.get() == 0 {
             } else if p.pos.get() == pos {
                 p.last_access.set(now);
-                return p.chunk.borrow().clone();
+                return Err(p);
             } else if free.last_access < p.last_access {
                 continue;
             }
             free = p;
         }
-        let chunk = C::compute(layer, pos);
-        free.pos.set(pos);
-        free.chunk.replace(chunk.clone());
-        free.last_access.set(now);
-        chunk
+        Ok(free)
+    }
+
+    pub fn clear(&self, pos: GridPoint<C>, layer: &C::Dependencies) {
+        for cell in self.access(pos) {
+            if cell.pos.get() == pos {
+                cell.last_access.set(0);
+                cell.chunk.replace(Default::default());
+            }
+        }
+        C::clear(layer, pos)
+    }
+
+    pub fn incoherent_override_cache(&self, pos: GridPoint<C>, val: C) {
+        let now = self.time.get();
+        self.time.set(now.checked_add(1).unwrap());
+        let (Ok(v) | Err(v)) = self.find_free_or_entry(pos, now);
+        v.chunk.replace(val);
+        v.pos.set(pos);
     }
 
     pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<C> {

@@ -3,10 +3,10 @@ use std::{ops::Range, sync::Arc};
 use arrayvec::ArrayVec;
 
 use crate::{
+    Chunk, Layer,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
-    Chunk, Layer,
 };
 
 use super::UniformPoint;
@@ -84,6 +84,10 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
             points.push(p);
         }
         ReducedUniformPoint { points }
+    }
+
+    fn clear(raw_points: &Self::Dependencies, index: GridPoint<Self>) {
+        raw_points.clear(Self::bounds(index));
     }
 }
 

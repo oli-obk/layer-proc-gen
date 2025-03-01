@@ -1,7 +1,7 @@
 use ::rand::distributions::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
 use debug::{Debug, DebugContent, DynLayer};
-use generic_layers::{rng_for_point, ReducedUniformPoint, Reducible};
+use generic_layers::{ReducedUniformPoint, Reducible, rng_for_point};
 use macroquad::prelude::*;
 use miniquad::window::screen_size;
 use std::{
@@ -141,6 +141,17 @@ impl Chunk for ReducedLocations {
             }
         }
     }
+
+    fn clear(
+        ReducedLocationsDeps {
+            intersections,
+            cities,
+        }: &Self::Dependencies,
+        index: GridPoint<Self>,
+    ) {
+        cities.clear(Self::bounds(index).pad(Point2d::splat(City::RADIUS_RANGE.end)));
+        intersections.clear(Self::bounds(index));
+    }
 }
 
 impl Debug for ReducedLocations {
@@ -185,6 +196,10 @@ impl Chunk for Roads {
         )
         .into();
         Roads { roads }
+    }
+
+    fn clear(RoadsDeps { intersections }: &Self::Dependencies, index: GridPoint<Self>) {
+        intersections.clear(Self::vision_range(Self::bounds(index)));
     }
 }
 
@@ -332,6 +347,10 @@ impl Chunk for Highways {
             roads: Arc::new(roads),
         }
     }
+
+    fn clear(HighwayDeps { intersections }: &Self::Dependencies, index: GridPoint<Self>) {
+        intersections.clear(Self::vision_range(Self::bounds(index)));
+    }
 }
 
 impl Debug for Highways {
@@ -468,6 +487,20 @@ impl Chunk for PlayerView {
         }
 
         PlayerView(Arc::new(PlayerViewData { roads, trees }))
+    }
+
+    fn clear(
+        PlayerDeps {
+            city_roads,
+            highways,
+        }: &Self::Dependencies,
+        index: GridPoint<Self>,
+    ) {
+        let padding = screen_padding().as_i64vec2();
+        let padding = Point2d::new(padding.x, padding.y);
+        let bounds = Self::bounds(index).pad(padding);
+        city_roads.clear(Roads::vision_range(bounds));
+        highways.clear(Highways::vision_range(bounds));
     }
 }
 

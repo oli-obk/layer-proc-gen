@@ -14,6 +14,8 @@ impl Chunk for TheChunk {
     fn compute(_layer: &Self::Dependencies, _index: GridPoint<Self>) -> Self {
         TheChunk(0)
     }
+
+    fn clear(_layer: &Self::Dependencies, _index: GridPoint<Self>) {}
 }
 
 impl debug::Debug for TheChunk {}
@@ -42,6 +44,8 @@ impl Chunk for Player {
         for _ in deps.layer.get_range(Self::bounds(index)) {}
         Player
     }
+
+    fn clear(_layer: &Self::Dependencies, _index: GridPoint<Self>) {}
 }
 
 #[derive(Clone, Default)]
@@ -61,6 +65,8 @@ impl Chunk for MapChunk {
         for _ in deps.layer.get_range(Self::bounds(index)) {}
         MapChunk
     }
+
+    fn clear(_layer: &Self::Dependencies, _index: GridPoint<Self>) {}
 }
 
 #[test]

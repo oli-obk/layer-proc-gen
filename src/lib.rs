@@ -161,6 +161,27 @@ impl<C: Chunk> Layer<C> {
         }
     }
 
+    /// Eagerly unload all chunks in the given bounds (in world coordinates).
+    pub fn clear(&self, chunk_bounds: Bounds) {
+        for index in C::bounds_to_grid(chunk_bounds).iter() {
+            self.layer.borrow().0.clear(index, self)
+        }
+    }
+
+    /// Manually (without calling `compute`) set a chunk in the cache.
+    ///
+    /// This violates all the nice properties like the fact that layers
+    /// depending on this one will not even load this chunk if they have
+    /// computed all their chunks that depend on this one. They may
+    /// later have to recompute, and then see the new value, which may
+    /// lead to recomputed chunks being different from non-recomputed chunks.
+    ///
+    /// TLDR: only call this if you have called `clear` on everything that depended
+    /// on this one.
+    pub fn incoherent_override_cache(&self, index: GridPoint<C>, val: C) {
+        self.layer.borrow().0.incoherent_override_cache(index, val)
+    }
+
     /// Get a chunk or generate it if it wasn't already cached.
     pub fn get_or_compute(&self, index: GridPoint<C>) -> C {
         self.layer.borrow().0.get_or_compute(index, self)
@@ -206,6 +227,9 @@ pub trait Chunk: Sized + Default + Clone + 'static {
 
     /// Compute a chunk from its dependencies
     fn compute(layer: &Self::Dependencies, index: GridPoint<Self>) -> Self;
+
+    /// Clear all information that [compute] would have computed
+    fn clear(layer: &Self::Dependencies, index: GridPoint<Self>);
 
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
