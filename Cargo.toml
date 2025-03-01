@@ -1,6 +1,6 @@
 [package]
 name = "layer-proc-gen"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
