@@ -1,4 +1,4 @@
-use ::rand::distributions::uniform::SampleRange as _;
+use ::rand::distr::uniform::SampleRange as _;
 use arrayvec::ArrayVec;
 use debug::{Debug, DebugContent, DynLayer};
 use generic_layers::{ReducedUniformPoint, Reducible, rng_for_point};
@@ -27,13 +27,13 @@ struct City {
 impl From<Point2d> for City {
     fn from(center: Point2d) -> Self {
         let mut rng = rng_for_point::<0, _>(center);
-        let size = Self::RADIUS_RANGE.sample_single(&mut rng);
+        let size = Self::RADIUS_RANGE.sample_single(&mut rng).unwrap();
         let n = 10 * size as i64 / Self::RADIUS_RANGE.end as i64;
         City {
             center,
             size,
-            name: (0..(3..(n + 3)).sample_single(&mut rng))
-                .map(|_| ('a'..='z').sample_single(&mut rng))
+            name: (0..(3..(n + 3)).sample_single(&mut rng).unwrap())
+                .map(|_| ('a'..='z').sample_single(&mut rng).unwrap())
                 .collect(),
         }
     }
