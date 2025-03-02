@@ -27,6 +27,9 @@
 //!         let center = Self::bounds(index).center();
 //!         MyChunk { center }
 //!     }
+//!     fn clear(&(): &(), index: GridPoint<Self>) {
+//!         // No dependencies to clear things from
+//!     }
 //! }
 //! ```
 //!
@@ -157,7 +160,7 @@ impl<C: Chunk> Layer<C> {
         // Difference to
         create_indices.sort_by_cached_key(|&index| index.dist_squared(center));
         for index in create_indices {
-            self.get_or_compute(index);
+            self.get(index);
         }
     }
 
@@ -183,8 +186,8 @@ impl<C: Chunk> Layer<C> {
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
-    pub fn get_or_compute(&self, index: GridPoint<C>) -> C {
-        self.layer.borrow().0.get_or_compute(index, self)
+    pub fn get(&self, index: GridPoint<C>) -> C {
+        self.layer.borrow().0.get(index, self)
     }
 
     /// Get an iterator over all chunks that touch the given bounds (in world coordinates)
@@ -197,12 +200,12 @@ impl<C: Chunk> Layer<C> {
     /// Chunks will be generated on the fly.
     pub fn get_grid_range(&self, range: Bounds<GridIndex<C>>) -> impl Iterator<Item = C> + '_ {
         // TODO: first request generation, then iterate to increase parallelism
-        range.iter().map(move |pos| self.get_or_compute(pos))
+        range.iter().map(move |pos| self.get(pos))
     }
 
     /// Get a 3x3 array of chunks around a specific chunk
     pub fn get_moore_neighborhood(&self, index: GridPoint<C>) -> [[C; 3]; 3] {
-        C::moore_neighborhood(index).map(|line| line.map(|index| self.get_or_compute(index)))
+        C::moore_neighborhood(index).map(|line| line.map(|index| self.get(index)))
     }
 }
 

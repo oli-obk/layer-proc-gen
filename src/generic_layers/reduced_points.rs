@@ -55,7 +55,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
     fn compute(raw_points: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let mut points = ArrayVec::new();
         'points: for p in raw_points
-            .get_or_compute(index.into_same_chunk_size())
+            .get(index.into_same_chunk_size())
             .points
         {
             for other in raw_points.get_range(

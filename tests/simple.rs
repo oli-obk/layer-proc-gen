@@ -72,17 +72,17 @@ impl Chunk for MapChunk {
 #[test]
 fn create_layer() {
     let layer = Layer::<TheChunk>::new(());
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
+    layer.get(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
 }
 
 #[test]
 fn double_assign_chunk() {
     let layer = Layer::<TheChunk>::new(());
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
+    layer.get(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
     // This is very incorrect, but adding assertions for checking its
     // correctness destroys all caching and makes logging and perf
     // completely useless.
-    layer.get_or_compute(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
+    layer.get(Point2d { x: 42, y: 99 }.map(GridIndex::from_raw));
 }
 
 #[test]

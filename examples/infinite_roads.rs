@@ -116,7 +116,7 @@ impl Chunk for ReducedLocations {
         let bounds = Self::bounds(index);
         let center = bounds.center();
         let points = intersections
-            .get_or_compute(index.into_same_chunk_size())
+            .get(index.into_same_chunk_size())
             .points
             .iter()
             .map(|p| p.0)
@@ -320,7 +320,7 @@ impl Chunk for Highways {
                         .to(Chunk::pos_to_grid(start))
                         .iter_all_touched_pixels(|index| {
                             closest = intersections
-                                .get_or_compute(index)
+                                .get(index)
                                 .points
                                 .iter()
                                 .copied()
@@ -463,7 +463,7 @@ impl Chunk for PlayerView {
         let highway_vision_range = Highways::bounds_to_grid(Highways::vision_range(bounds));
 
         for index in grid_vision_range.iter() {
-            for &line in city_roads.get_or_compute(index).roads.iter() {
+            for &line in city_roads.get(index).roads.iter() {
                 roads.push(Highway {
                     line,
                     start_city: String::new(),
@@ -474,12 +474,12 @@ impl Chunk for PlayerView {
             }
         }
         for index in highway_vision_range.iter() {
-            roads.extend_from_slice(&highways.get_or_compute(index).roads);
+            roads.extend_from_slice(&highways.get(index).roads);
         }
         for index in grid_vision_range.iter() {
             for &tree in &highways
                 .intersections
-                .get_or_compute(index.into_same_chunk_size())
+                .get(index.into_same_chunk_size())
                 .trees
             {
                 trees.push(Tree { pos: tree });
@@ -640,10 +640,7 @@ async fn main() {
             draw_line(start.x, start.y, end.x, end.y, thickness, color);
         };
 
-        let data = player
-            .view
-            .get_or_compute(PlayerView::pos_to_grid(player.pos()))
-            .0;
+        let data = player.view.get(PlayerView::pos_to_grid(player.pos())).0;
         for highway in data.roads.iter() {
             let start = point2screen(highway.line.start);
             let end = point2screen(highway.line.end);

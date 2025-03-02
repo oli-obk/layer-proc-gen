@@ -227,7 +227,7 @@ impl<C: Chunk> RollingGrid<C> {
     /// If the position is already occupied with a block,
     /// debug assert that it's the same that we'd generate.
     /// Otherwise just increment the user count for that block.
-    pub fn get_or_compute(&self, pos: GridPoint<C>, layer: &C::Dependencies) -> C {
+    pub fn get(&self, pos: GridPoint<C>, layer: &C::Dependencies) -> C {
         let now = self.time.get();
         self.time.set(now.checked_add(1).unwrap());
         let free = match self.find_free_or_entry(pos, now) {
