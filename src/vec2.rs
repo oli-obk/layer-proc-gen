@@ -11,7 +11,7 @@ use rand::{
 use std::{
     cmp::Ordering,
     num::NonZeroU16,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
 };
 
 /// A 2d point where you can choose the type and thus precision of the x and y indices.
@@ -372,6 +372,16 @@ impl<T: Copy + PartialEq + PartialOrd + SampleUniform> Bounds<T> {
             min: f(self.min),
             max: f(self.max),
         }
+    }
+
+    /// The range covered on the y axis
+    pub fn y_range(&self) -> Range<T> {
+        self.min.y..self.max.y
+    }
+
+    /// The range covered on the x axis
+    pub fn x_range(&self) -> Range<T> {
+        self.min.x..self.max.x
     }
 }
 
