@@ -24,7 +24,7 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
     fn position(&self) -> Point2d;
     /// Debug representation. Usually contains just a single thing, the item itself,
     /// but can be overriden to emit addition information.
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         vec![DebugContent::Circle {
             center: self.position(),
             radius: self.radius() as f32,
@@ -89,11 +89,11 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
 }
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for ReducedUniformPoint<P, SIZE, SALT> {
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, bounds: Bounds) -> Vec<DebugContent> {
         self.points
             .iter()
             .flat_map(|p| {
-                let mut debug = p.debug();
+                let mut debug = p.debug(bounds);
                 for debug in &mut debug {
                     // After reducing, the radius is irrelevant and it is nicer to represent it as a point.
                     match debug {

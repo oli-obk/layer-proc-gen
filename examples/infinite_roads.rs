@@ -50,7 +50,7 @@ impl Reducible for City {
         self.center
     }
 
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         vec![
             DebugContent::Circle {
                 center: self.center,
@@ -155,7 +155,7 @@ impl Chunk for ReducedLocations {
 }
 
 impl Debug for ReducedLocations {
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         self.trees
             .iter()
             .map(|&center| DebugContent::Circle { center, radius: 8. })
@@ -204,7 +204,7 @@ impl Chunk for Roads {
 }
 
 impl Debug for Roads {
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         self.roads.iter().copied().map(DebugContent::from).collect()
     }
 }
@@ -354,7 +354,7 @@ impl Chunk for Highways {
 }
 
 impl Debug for Highways {
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         self.roads
             .iter()
             .map(|highway| DebugContent::Line(highway.line))
@@ -505,7 +505,7 @@ impl Chunk for PlayerView {
 }
 
 impl Debug for PlayerView {
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         self.0
             .roads
             .iter()
@@ -739,7 +739,7 @@ async fn main() {
         let draw_layer_debug = |layer: &dyn DynLayer, color| {
             for (current_chunk, chunk) in layer.iter_all_loaded() {
                 draw_bounds(current_chunk, color);
-                for debug in chunk.debug() {
+                for debug in chunk.debug(current_chunk) {
                     draw_debug_content(debug, debug_zoom, color, current_chunk)
                 }
             }
@@ -941,7 +941,7 @@ async fn render_3d_layers(top_layers: Vec<&dyn DynLayer>) {
                 draw_line_3d(min, vec3(max.x, min.y, pos.z), border_color);
                 draw_line_3d(vec3(max.x, min.y, pos.z), max, border_color);
                 draw_line_3d(vec3(min.x, max.y, pos.z), max, border_color);
-                for thing in chunk.debug() {
+                for thing in chunk.debug(bounds) {
                     match thing {
                         DebugContent::Chunk => draw_poly(
                             bounds.center().x as f32,

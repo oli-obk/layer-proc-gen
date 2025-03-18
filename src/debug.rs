@@ -13,7 +13,7 @@ use crate::{
 /// data is not useful for debug views.
 pub trait Debug {
     /// Render the elements of this chunk type.
-    fn debug(&self) -> Vec<DebugContent> {
+    fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
         vec![]
     }
 }
