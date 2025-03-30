@@ -13,7 +13,7 @@ pub type GridPoint<C> = crate::vec2::Point2d<GridIndex<C>>;
 
 // TODO: avoid the box when generic const exprs allow for it
 // The Layer that contains it will already get put into an `Arc`
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub(crate) struct RollingGrid<C: Chunk> {
     /// The inner slice contains to `L::OVERLAP` entries,
     /// some of which are `None` if they have nevef been used
@@ -38,7 +38,7 @@ impl<C: Chunk> Default for RollingGrid<C> {
 }
 
 /// An x or y index in chunk coordinates, not world coordinates.
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridIndex<C>(pub i64, PhantomData<C>);
 
 impl<C> Abs for GridIndex<C> {
@@ -208,7 +208,7 @@ impl<C: Chunk> GridPoint<C> {
     }
 }
 
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 struct ActiveCell<C: Chunk> {
     pos: Cell<GridPoint<C>>,
     chunk: RefCell<C>,

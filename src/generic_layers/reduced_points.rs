@@ -33,7 +33,7 @@ pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Removes locations that are too close to others.
 pub struct ReducedUniformPoint<P, const SIZE: u8, const SALT: u64> {
     /// The points remaining after removing ones that are too close to others.
