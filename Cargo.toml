@@ -24,3 +24,8 @@ derive_more = { version = "2.0.0", default-features = false, features = [
 ] }
 rand = { version = "0.9", features = ["small_rng"], default-features = false }
 arrayvec = "0.7.6"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde", "arrayvec/serde"]

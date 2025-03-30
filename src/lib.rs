@@ -95,6 +95,8 @@ impl<C: Chunk + debug::Debug> Dependencies for Layer<C> {
 ///
 /// It exposes various convenience accessors, like iterating over areas in
 /// chunk or world coordinates.
+#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature="serde", serde(bound(serialize = "Store<C>: serde::Serialize", deserialize = "Store<C>: serde::Deserialize<'de>")))]
 pub struct Layer<C: Chunk> {
     layer: Store<C>,
 }

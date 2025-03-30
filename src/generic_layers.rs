@@ -28,6 +28,7 @@ fn poisson_1(val: f32) -> u8 {
 }
 
 #[derive(PartialEq, Debug, Clone)]
+#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 /// A type of chunk that contains on average one point.
 /// You can specify a size in real world coordinates as well as
 /// a random number generator salt for picking different points

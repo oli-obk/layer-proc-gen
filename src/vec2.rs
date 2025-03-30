@@ -37,6 +37,7 @@ use std::{
 #[div(forward)]
 #[mul_assign(forward)]
 #[div_assign(forward)]
+#[cfg_attr(feature="serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Point2d<T = i64> {
     /// `x` position
     pub x: T,
