@@ -13,7 +13,7 @@
 //! As an example, here's a layer that generates a point at its center:
 //!
 //! ```rust
-//! use layer_proc_gen::{Chunk, GridPoint, Point2d, debug::DynLayer};
+//! use layer_proc_gen::{Chunk, GridPoint, Point2d, debug::DynLayer, ChunkExt as _};
 //!
 //! #[derive(Clone, Default)]
 //! struct MyChunk {
@@ -234,6 +234,14 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// Clear all information that [compute] would have computed
     fn clear(layer: &Self::Dependencies, index: GridPoint<Self>);
 
+    /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
+    /// can be of any type to specify non-layer dependencies, too.
+    /// It is the type of the first argument of [Chunk::compute].
+    type Dependencies: Dependencies;
+}
+
+/// Various helpers that a [Chunk] frequently needs
+pub trait ChunkExt: Chunk {
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
         let size = Self::SIZE.map(|i| 1 << i);
@@ -268,12 +276,9 @@ pub trait Chunk: Sized + Default + Clone + 'static {
             [p(-1, 1), p(0, 1), p(1, 1)],
         ]
     }
-
-    /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
-    /// can be of any type to specify non-layer dependencies, too.
-    /// It is the type of the first argument of [Chunk::compute].
-    type Dependencies: Dependencies;
 }
+
+impl<T: Chunk> ChunkExt for T {}
 
 mod rolling_grid;
 pub mod vec2;

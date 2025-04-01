@@ -3,7 +3,7 @@
 use std::{any::TypeId, borrow::Borrow as _};
 
 use crate::{
-    Chunk, Dependencies as _, Layer,
+    Chunk, ChunkExt as _, Dependencies as _, Layer,
     rolling_grid::RollingGrid,
     vec2::{Bounds, Line, Point2d},
 };

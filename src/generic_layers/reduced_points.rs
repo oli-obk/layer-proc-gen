@@ -3,7 +3,7 @@ use std::{ops::Range, sync::Arc};
 use arrayvec::ArrayVec;
 
 use crate::{
-    Chunk, Layer,
+    Chunk, ChunkExt as _, Layer,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
