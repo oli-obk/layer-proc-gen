@@ -4,6 +4,7 @@ use crate::{
 };
 use std::{
     cell::{Cell, RefCell},
+    hash::Hash,
     marker::PhantomData,
     ops::{Div, DivAssign, Neg},
 };
@@ -37,6 +38,8 @@ impl<C: Chunk> Default for RollingGrid<C> {
 }
 
 /// An x or y index in chunk coordinates, not world coordinates.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct GridIndex<C>(pub i64, PhantomData<C>);
 
 impl<C> Abs for GridIndex<C> {
@@ -122,6 +125,12 @@ impl<C> Eq for GridIndex<C> {}
 impl<C> PartialEq for GridIndex<C> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
+    }
+}
+
+impl<C> Hash for GridIndex<C> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 
@@ -212,6 +221,12 @@ struct ActiveCell<C: Chunk> {
     last_access: Cell<u64>,
 }
 
+impl<C: Chunk> ActiveCell<C> {
+    fn drop(&self, layer: &C::Dependencies) {
+        self.chunk.borrow().on_drop(layer, self.pos.get())
+    }
+}
+
 impl<C: Chunk> Default for ActiveCell<C> {
     fn default() -> Self {
         Self {
@@ -223,10 +238,15 @@ impl<C: Chunk> Default for ActiveCell<C> {
 }
 
 impl<C: Chunk> RollingGrid<C> {
+    pub fn drop(&self, layer: &C::Dependencies) {
+        for cell in self.grid.iter().flatten() {
+            cell.drop(layer)
+        }
+    }
+
     #[track_caller]
-    /// If the position is already occupied with a block,
-    /// debug assert that it's the same that we'd generate.
-    /// Otherwise just increment the user count for that block.
+    /// If the position is already occupied with a block, fetch it and update the LRU timestamp for that block.
+    /// Otherwise generate the block.
     pub fn get(&self, pos: GridPoint<C>, layer: &C::Dependencies) -> C {
         let now = self.time.get();
         self.time.set(now.checked_add(1).unwrap());
@@ -235,8 +255,9 @@ impl<C: Chunk> RollingGrid<C> {
             Err(p) => return p.chunk.borrow().clone(),
         };
         let chunk = C::compute(layer, pos);
-        free.pos.set(pos);
-        free.chunk.replace(chunk.clone());
+        let prev_pos = free.pos.replace(pos);
+        let prev = free.chunk.replace(chunk.clone());
+        prev.on_drop(layer, prev_pos);
         free.last_access.set(now);
         chunk
     }
@@ -265,18 +286,20 @@ impl<C: Chunk> RollingGrid<C> {
         for cell in self.access(pos) {
             if cell.pos.get() == pos {
                 cell.last_access.set(0);
-                cell.chunk.replace(Default::default());
+                let prev = cell.chunk.replace(Default::default());
+                prev.on_drop(layer, pos);
             }
         }
         C::clear(layer, pos)
     }
 
-    pub fn incoherent_override_cache(&self, pos: GridPoint<C>, val: C) {
+    pub fn incoherent_override_cache(&self, layer: &C::Dependencies, pos: GridPoint<C>, val: C) {
         let now = self.time.get();
         self.time.set(now.checked_add(1).unwrap());
         let (Ok(v) | Err(v)) = self.find_free_or_entry(pos, now);
-        v.chunk.replace(val);
-        v.pos.set(pos);
+        let prev = v.chunk.replace(val);
+        let prev_pos = v.pos.replace(pos);
+        prev.on_drop(layer, prev_pos);
     }
 
     pub const fn pos_to_grid_pos(pos: Point2d) -> GridPoint<C> {

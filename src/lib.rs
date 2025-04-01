@@ -129,6 +129,13 @@ impl<C: Chunk> Layer<C> {
     }
 }
 
+impl<C: Chunk> Drop for Layer<C> {
+    fn drop(&mut self) {
+        let data = self.layer.borrow();
+        data.0.drop(&data.1);
+    }
+}
+
 impl<C: Chunk> Clone for Layer<C>
 where
     Store<C>: Clone,
@@ -182,7 +189,10 @@ impl<C: Chunk> Layer<C> {
     /// TLDR: only call this if you have called `clear` on everything that depended
     /// on this one.
     pub fn incoherent_override_cache(&self, index: GridPoint<C>, val: C) {
-        self.layer.borrow().0.incoherent_override_cache(index, val)
+        self.layer
+            .borrow()
+            .0
+            .incoherent_override_cache(self, index, val)
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
@@ -233,6 +243,10 @@ pub trait Chunk: Sized + Default + Clone + 'static {
 
     /// Clear all information that [compute] would have computed
     fn clear(layer: &Self::Dependencies, index: GridPoint<Self>);
+
+    /// Called on [Drop], [Chunk::clear] or when
+    /// the chunk gets overwritten because it was too old.
+    fn on_drop(&self, _layer: &Self::Dependencies, _index: GridPoint<Self>) {}
 
     /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
     /// can be of any type to specify non-layer dependencies, too.
