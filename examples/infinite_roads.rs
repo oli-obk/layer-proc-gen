@@ -316,8 +316,8 @@ impl Chunk for Highways {
 
                 let closest = |p, start| {
                     let mut closest = None;
-                    Chunk::pos_to_grid(p)
-                        .to(Chunk::pos_to_grid(start))
+                    ReducedLocations::pos_to_grid(p)
+                        .to(ReducedLocations::pos_to_grid(start))
                         .iter_all_touched_pixels(|index| {
                             closest = intersections
                                 .get(index)

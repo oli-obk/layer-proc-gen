@@ -4,7 +4,7 @@ use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
-    Bounds, Chunk,
+    Bounds, Chunk, ChunkExt as _,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},

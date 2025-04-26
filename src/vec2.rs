@@ -33,6 +33,7 @@ use std::{
     DivAssign,
     Default,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[mul(forward)]
 #[div(forward)]
 #[mul_assign(forward)]
@@ -42,6 +43,14 @@ pub struct Point2d<T = i64> {
     pub x: T,
     /// `y` position
     pub y: T,
+}
+
+// wtf is this needed instead of the derive which expands to the same code??
+impl<T: std::hash::Hash> std::hash::Hash for Point2d<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+    }
 }
 
 /// A line segment with a direction.

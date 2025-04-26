@@ -13,7 +13,7 @@
 //! As an example, here's a layer that generates a point at its center:
 //!
 //! ```rust
-//! use layer_proc_gen::{Chunk, GridPoint, Point2d, debug::DynLayer};
+//! use layer_proc_gen::{Chunk, GridPoint, Point2d, debug::DynLayer, ChunkExt as _};
 //!
 //! #[derive(Clone, Default)]
 //! struct MyChunk {
@@ -129,6 +129,13 @@ impl<C: Chunk> Layer<C> {
     }
 }
 
+impl<C: Chunk> Drop for Layer<C> {
+    fn drop(&mut self) {
+        let data = self.layer.borrow();
+        data.0.drop(&data.1);
+    }
+}
+
 impl<C: Chunk> Clone for Layer<C>
 where
     Store<C>: Clone,
@@ -182,7 +189,10 @@ impl<C: Chunk> Layer<C> {
     /// TLDR: only call this if you have called `clear` on everything that depended
     /// on this one.
     pub fn incoherent_override_cache(&self, index: GridPoint<C>, val: C) {
-        self.layer.borrow().0.incoherent_override_cache(index, val)
+        self.layer
+            .borrow()
+            .0
+            .incoherent_override_cache(self, index, val)
     }
 
     /// Get a chunk or generate it if it wasn't already cached.
@@ -234,6 +244,18 @@ pub trait Chunk: Sized + Default + Clone + 'static {
     /// Clear all information that [compute] would have computed
     fn clear(layer: &Self::Dependencies, index: GridPoint<Self>);
 
+    /// Called on [Drop], [Chunk::clear] or when
+    /// the chunk gets overwritten because it was too old.
+    fn on_drop(&self, _layer: &Self::Dependencies, _index: GridPoint<Self>) {}
+
+    /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
+    /// can be of any type to specify non-layer dependencies, too.
+    /// It is the type of the first argument of [Chunk::compute].
+    type Dependencies: Dependencies;
+}
+
+/// Various helpers that a [Chunk] frequently needs
+pub trait ChunkExt: Chunk {
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
         let size = Self::SIZE.map(|i| 1 << i);
@@ -268,12 +290,9 @@ pub trait Chunk: Sized + Default + Clone + 'static {
             [p(-1, 1), p(0, 1), p(1, 1)],
         ]
     }
-
-    /// The actual dependencies. Usually a struct with fields of `Layer<T>` type, but
-    /// can be of any type to specify non-layer dependencies, too.
-    /// It is the type of the first argument of [Chunk::compute].
-    type Dependencies: Dependencies;
 }
+
+impl<T: Chunk> ChunkExt for T {}
 
 mod rolling_grid;
 pub mod vec2;
