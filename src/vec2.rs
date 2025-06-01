@@ -429,6 +429,32 @@ impl<T: Copy + Num + Add<Output = T> + Sub<Output = T> + DivAssign<T>> Bounds<T>
     pub fn center(&self) -> Point2d<T> {
         (self.max - self.min) / T::TWO + self.min
     }
+
+    /// Left top corner
+    pub fn left_top(&self) -> Point2d<T> {
+        self.min
+    }
+
+    /// Left bottom corner
+    pub fn left_bottom(&self) -> Point2d<T> {
+        Point2d {
+            x: self.min.x,
+            y: self.max.y,
+        }
+    }
+
+    /// Right bottom corner
+    pub fn right_bottom(&self) -> Point2d<T> {
+        self.max
+    }
+
+    /// Right top corner
+    pub fn right_top(&self) -> Point2d<T> {
+        Point2d {
+            x: self.max.x,
+            y: self.min.y,
+        }
+    }
 }
 
 impl<T: Copy + Add<Output = T> + Sub<Output = T>> Bounds<T> {
