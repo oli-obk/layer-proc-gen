@@ -182,6 +182,14 @@ impl<T: Num> Line<T> {
             self.start.y += k.y
         }
     }
+
+    /// Convert the start and end point with one operation
+    pub fn map<U>(self, mut f: impl FnMut(Point2d<T>) -> Point2d<U>) -> Line<U> {
+        Line {
+            start: f(self.start),
+            end: f(self.end),
+        }
+    }
 }
 
 impl<T: std::fmt::Debug> std::fmt::Debug for Point2d<T> {
