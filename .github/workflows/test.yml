@@ -22,11 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Install rustfmt
+      run: rustup component add rustfmt
     - name: Run rustfmt
       run: cargo fmt --check
   clippy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Install clippy
+      run: rustup component add clippy
     - name: Run clippy
       run: cargo clippy -- -Dwarnings
