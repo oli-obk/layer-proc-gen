@@ -26,7 +26,7 @@ struct City {
 
 impl From<Point2d> for City {
     fn from(center: Point2d) -> Self {
-        let mut rng = rng_for_point::<0, _>(center);
+        let mut rng = rng_for_point::<0, _>(center, 0);
         let size = Self::RADIUS_RANGE.sample_single(&mut rng).unwrap();
         let n = 10 * size as i64 / Self::RADIUS_RANGE.end as i64;
         City {

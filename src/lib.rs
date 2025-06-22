@@ -91,6 +91,16 @@ impl<C: Chunk + debug::Debug> Dependencies for Layer<C> {
     }
 }
 
+/// Wrapper around a [`u64`] seed so it can be used as [`Dependencies`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Seed(pub u64);
+
+impl Dependencies for Seed {
+    fn debug(&self) -> Vec<&dyn crate::debug::DynLayer> {
+        vec![]
+    }
+}
+
 /// The entry point to access the chunks of a layer.
 ///
 /// It exposes various convenience accessors, like iterating over areas in
