@@ -52,14 +52,14 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SI
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute(Seed(seed): &Self::Dependencies, index: GridPoint<Self>) -> Self {
-        let points = generate_points::<SALT, Self>(index, *seed);
+    fn compute(&seed: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        let points = generate_points::<SALT, Self>(index, seed);
         Self {
             points: points.map(P::from).collect(),
         }
     }
 
-    fn clear(Seed(_): &Self::Dependencies, _index: GridPoint<Self>) {
+    fn clear(_seed: &Self::Dependencies, _index: GridPoint<Self>) {
         // Nothing to do, we do not have dependencies
     }
 }
@@ -72,7 +72,7 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for UniformPoint<P, SI
 
 fn generate_points<const SALT: u64, C: Chunk + 'static>(
     index: GridPoint<C>,
-    seed: u64,
+    seed: Seed,
 ) -> impl Iterator<Item = Point2d> {
     let chunk_bounds = C::bounds(index);
     let mut rng = rng_for_point::<SALT, _>(index, seed);
@@ -81,11 +81,11 @@ fn generate_points<const SALT: u64, C: Chunk + 'static>(
 }
 
 /// Create a random number generator seeded with a specific point.
-pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>, seed: u64) -> SmallRng {
+pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>, seed: Seed) -> SmallRng {
     let x = SmallRng::seed_from_u64(index.x.as_u64());
     let y = SmallRng::seed_from_u64(index.y.as_u64());
     let salt = SmallRng::seed_from_u64(SALT);
-    let seeded = SmallRng::seed_from_u64(seed);
+    let seeded = SmallRng::seed_from_u64(seed.0);
     let mut seed = <SmallRng as SeedableRng>::Seed::default();
     for mut rng in [x, y, salt, seeded] {
         let mut tmp = <SmallRng as SeedableRng>::Seed::default();
