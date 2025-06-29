@@ -4,7 +4,7 @@ use arrayvec::ArrayVec;
 use rand::prelude::*;
 
 use crate::{
-    Bounds, Chunk, ChunkExt as _,
+    Bounds, Chunk, ChunkExt as _, Seed,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Num, Point2d},
@@ -48,18 +48,18 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPoint<P, SIZE, SALT>
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SIZE, SALT> {
     type LayerStore<T> = T;
-    type Dependencies = ();
+    type Dependencies = Seed;
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute((): &Self::Dependencies, index: GridPoint<Self>) -> Self {
-        let points = generate_points::<SALT, Self>(index);
+    fn compute(&seed: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        let points = generate_points::<SALT, Self>(index, seed);
         Self {
             points: points.map(P::from).collect(),
         }
     }
 
-    fn clear((): &Self::Dependencies, _index: GridPoint<Self>) {
+    fn clear(_seed: &Self::Dependencies, _index: GridPoint<Self>) {
         // Nothing to do, we do not have dependencies
     }
 }
@@ -72,20 +72,22 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Debug for UniformPoint<P, SI
 
 fn generate_points<const SALT: u64, C: Chunk + 'static>(
     index: GridPoint<C>,
+    seed: Seed,
 ) -> impl Iterator<Item = Point2d> {
     let chunk_bounds = C::bounds(index);
-    let mut rng = rng_for_point::<SALT, _>(index);
+    let mut rng = rng_for_point::<SALT, _>(index, seed);
     let n = poisson_1(rng.random_range(0.0..=1.0)).into();
     std::iter::from_fn(move || Some(chunk_bounds.sample(&mut rng))).take(n)
 }
 
 /// Create a random number generator seeded with a specific point.
-pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>) -> SmallRng {
+pub fn rng_for_point<const SALT: u64, T: Num>(index: Point2d<T>, seed: Seed) -> SmallRng {
     let x = SmallRng::seed_from_u64(index.x.as_u64());
     let y = SmallRng::seed_from_u64(index.y.as_u64());
     let salt = SmallRng::seed_from_u64(SALT);
+    let seeded = SmallRng::seed_from_u64(seed.0);
     let mut seed = <SmallRng as SeedableRng>::Seed::default();
-    for mut rng in [x, y, salt] {
+    for mut rng in [x, y, salt, seeded] {
         let mut tmp = <SmallRng as SeedableRng>::Seed::default();
         rng.fill_bytes(&mut tmp);
         for (seed, tmp) in seed.iter_mut().zip(tmp.iter()) {
