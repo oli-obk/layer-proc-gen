@@ -23,9 +23,7 @@ impl Chunk for Block {
         }
     }
 
-    fn clear((): &Self::Dependencies, _index: GridPoint<Self>) {
-        todo!()
-    }
+    fn clear((): &Self::Dependencies, _index: GridPoint<Self>) {}
 
     type Dependencies = ();
 }
@@ -55,6 +53,22 @@ async fn main() {
             return;
         }
 
+        let (x, y) = mouse_position();
+        let index = Block::pos_to_grid(Point2d::new(x as i64, y as i64));
+
+        if is_mouse_button_pressed(MouseButton::Left) | is_mouse_button_pressed(MouseButton::Right)
+        {
+            println!("{x}, {y}: {index:?}");
+            let chunk_bounds = Block::bounds(index).pad(Point2d::splat(1));
+            lines.clear(chunk_bounds);
+            (**lines).incoherent_override_cache(
+                index,
+                Block {
+                    density: is_mouse_button_pressed(MouseButton::Left),
+                },
+            );
+        }
+
         let range = Bounds {
             min: Point2d::splat(GridIndex::ZERO),
             max: Point2d {
@@ -73,7 +87,7 @@ async fn main() {
                     bounds.min.y,
                     bounds.max.x - bounds.min.x,
                     bounds.max.y - bounds.min.y,
-                    GRAY,
+                    if pos == index { RED } else { GRAY },
                 );
             }
             let chunk = lines.deref().get(pos.into_same_chunk_size());

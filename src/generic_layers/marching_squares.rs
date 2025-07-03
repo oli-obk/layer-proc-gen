@@ -60,8 +60,8 @@ impl<DensityMap: Density> Chunk for LookupIndex<DensityMap> {
         }
     }
 
-    fn clear(raw_points: &Self::Dependencies, index: GridPoint<Self>) {
-        raw_points.clear(Self::bounds(index));
+    fn clear(_raw_points: &Self::Dependencies, index: GridPoint<Self>) {
+        // Do not clear the raw data
     }
 }
 
