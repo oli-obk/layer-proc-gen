@@ -58,7 +58,6 @@ async fn main() {
 
         if is_mouse_button_pressed(MouseButton::Left) | is_mouse_button_pressed(MouseButton::Right)
         {
-            println!("{x}, {y}: {index:?}");
             let chunk_bounds = Block::bounds(index).pad(Point2d::splat(1));
             lines.clear(chunk_bounds);
             (**lines).incoherent_override_cache(
@@ -77,32 +76,38 @@ async fn main() {
             },
         };
 
-        for pos in range.iter() {
-            let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
+        if is_key_down(KeyCode::Space) {
+            for pos in range.iter() {
+                let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
 
-            let block = lines.deref().deref().get(pos);
-            if block.density {
-                draw_rectangle(
+                let block = lines.deref().deref().get(pos);
+                if block.density {
+                    draw_rectangle(
+                        bounds.min.x,
+                        bounds.min.y,
+                        bounds.max.x - bounds.min.x,
+                        bounds.max.y - bounds.min.y,
+                        if pos == index { RED } else { GRAY },
+                    );
+                }
+            }
+        }
+
+        if is_key_down(KeyCode::Key1) {
+            for pos in range.iter() {
+                let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
+
+                let chunk = lines.deref().get(pos.into_same_chunk_size());
+                draw_text(
+                    &chunk.idx.to_string(),
                     bounds.min.x,
                     bounds.min.y,
-                    bounds.max.x - bounds.min.x,
-                    bounds.max.y - bounds.min.y,
-                    if pos == index { RED } else { GRAY },
+                    20.,
+                    WHITE,
                 );
             }
         }
-        for pos in range.iter() {
-            let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
 
-            let chunk = lines.deref().get(pos.into_same_chunk_size());
-            draw_text(
-                &chunk.idx.to_string(),
-                bounds.min.x,
-                bounds.min.y,
-                20.,
-                WHITE,
-            );
-        }
         for pos in range.iter() {
             let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
 
