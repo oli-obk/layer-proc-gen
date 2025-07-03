@@ -3,7 +3,7 @@ use macroquad::prelude::*;
 use std::ops::Deref;
 
 use layer_proc_gen::{
-    generic_layers::{ContourLines, Density, LookupIndex},
+    generic_layers::{ContourLines, Density},
     vec2::Num as _,
     *,
 };

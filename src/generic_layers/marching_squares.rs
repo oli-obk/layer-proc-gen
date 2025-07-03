@@ -24,8 +24,8 @@ pub struct LookupIndex<DensityMap> {
 impl<DensityMap> Clone for LookupIndex<DensityMap> {
     fn clone(&self) -> Self {
         Self {
-            idx: self.idx.clone(),
-            phantom: self.phantom.clone(),
+            idx: self.idx,
+            phantom: self.phantom,
         }
     }
 }
@@ -60,7 +60,7 @@ impl<DensityMap: Density> Chunk for LookupIndex<DensityMap> {
         }
     }
 
-    fn clear(_raw_points: &Self::Dependencies, index: GridPoint<Self>) {
+    fn clear(_raw_points: &Self::Dependencies, _index: GridPoint<Self>) {
         // Do not clear the raw data
     }
 }
@@ -86,7 +86,7 @@ impl<DensityMap> Clone for ContourLines<DensityMap> {
     fn clone(&self) -> Self {
         Self {
             shapes: self.shapes.clone(),
-            phantom: self.phantom.clone(),
+            phantom: self.phantom,
         }
     }
 }
