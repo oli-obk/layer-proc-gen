@@ -107,7 +107,7 @@ impl<DensityMap: Density> Chunk for ContourLines<DensityMap> {
 
     fn compute(d: &Self::Dependencies, index: GridPoint<Self>) -> Self {
         let d = d.get(index.into_same_chunk_size()).idx;
-        let bounds = Self::bounds(index);
+        let bounds = Self::bounds(index).map(|p| p + Self::chunk_size() / 2);
         let l = bounds.min.x;
         let r = bounds.max.x;
         let t = bounds.min.y;

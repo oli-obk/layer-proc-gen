@@ -268,12 +268,17 @@ pub trait Chunk: Sized + Default + Clone + 'static {
 pub trait ChunkExt: Chunk {
     /// Get the bounds for the chunk at the given index
     fn bounds(index: GridPoint<Self>) -> Bounds {
-        let size = Self::SIZE.map(|i| 1 << i);
+        let size = Self::chunk_size();
         let min = index.map(|i| i.0) * size;
         Bounds {
             min,
             max: min + size,
         }
+    }
+
+    /// Compute the size of a single chunk from [Chunk::SIZE].
+    fn chunk_size() -> Point2d {
+        Self::SIZE.map(|i| 1 << i)
     }
 
     /// Get the grids that are touched by the given bounds.

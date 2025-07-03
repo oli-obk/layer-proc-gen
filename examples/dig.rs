@@ -90,6 +90,10 @@ async fn main() {
                     if pos == index { RED } else { GRAY },
                 );
             }
+        }
+        for pos in range.iter() {
+            let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
+
             let chunk = lines.deref().get(pos.into_same_chunk_size());
             draw_text(
                 &chunk.idx.to_string(),
@@ -98,6 +102,10 @@ async fn main() {
                 20.,
                 WHITE,
             );
+        }
+        for pos in range.iter() {
+            let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
+
             let chunk = lines.get(pos.into_same_chunk_size());
             for shape in chunk.debug(Block::bounds(pos)) {
                 match shape {
