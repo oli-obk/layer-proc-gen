@@ -109,25 +109,22 @@ async fn main() {
         }
 
         for pos in range.iter() {
-            let bounds = Block::bounds(pos).map(|d| d.map(|d| d as f32));
-
             let chunk = lines.get(pos.into_same_chunk_size());
-            for shape in chunk.debug(Block::bounds(pos)) {
-                match shape {
-                    DebugContent::Chunk => draw_rectangle(
-                        bounds.min.x,
-                        bounds.min.y,
-                        bounds.max.x - bounds.min.x,
-                        bounds.max.y - bounds.min.y,
-                        GRAY,
-                    ),
-                    DebugContent::Line(line) => {
-                        let line = line.map(|p| p.map(|p| p as f32));
-                        draw_line(line.start.x, line.start.y, line.end.x, line.end.y, 1., RED)
-                    }
-                    DebugContent::Circle { .. } => todo!(),
-                    DebugContent::Text { .. } => todo!(),
-                }
+            for shapes in &chunk.shapes {
+                let mesh = Mesh {
+                    vertices: shapes
+                        .iter()
+                        .map(|p| Vertex {
+                            position: Vec3::new(p.x as f32, p.y as f32, 0.0),
+                            uv: Vec2::new(p.x as f32, p.y as f32),
+                            color: [255, 0, 0, 255],
+                            normal: Vec4::new(0.0, 0.0, 1.0, 0.0),
+                        })
+                        .collect(),
+                    indices: (0..shapes.len() as u16).chain([0]).collect(),
+                    texture: None,
+                };
+                draw_mesh(&mesh);
             }
         }
 
