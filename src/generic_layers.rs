@@ -48,14 +48,14 @@ impl<P, const SIZE: u8, const SALT: u64> Default for UniformPoint<P, SIZE, SALT>
 
 impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for UniformPoint<P, SIZE, SALT> {
     type LayerStore<T> = T;
-    type Dependencies = Seed;
+    type Dependencies = (Seed, P::Dependencies);
 
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
-    fn compute(&seed: &Self::Dependencies, index: GridPoint<Self>) -> Self {
-        let points = generate_points::<SALT, Self>(index, seed);
+    fn compute((seed, ctx): &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        let points = generate_points::<SALT, Self>(index, *seed);
         Self {
-            points: points.map(P::from).collect(),
+            points: points.filter_map(|p| P::try_new(p, ctx)).collect(),
         }
     }
 

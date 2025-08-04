@@ -24,23 +24,29 @@ struct City {
     name: String,
 }
 
-impl From<Point2d> for City {
-    fn from(center: Point2d) -> Self {
-        let mut rng = rng_for_point::<0, _>(center, Seed(0));
+impl City {
+    const RADIUS_RANGE: Range<i64> = 100..500;
+}
+
+impl Reducible for City {
+    type Dependencies = Seed;
+
+    fn try_new(center: Point2d, &seed: &Self::Dependencies) -> Option<Self> {
+        let mut rng = rng_for_point::<0, _>(center, seed);
         let size = Self::RADIUS_RANGE.sample_single(&mut rng).unwrap();
         let n = 10 * size as i64 / Self::RADIUS_RANGE.end as i64;
-        City {
+        Some(City {
             center,
             size,
             name: (0..(3..(n + 3)).sample_single(&mut rng).unwrap())
                 .map(|_| ('a'..='z').sample_single(&mut rng).unwrap())
                 .collect(),
-        }
+        })
     }
-}
 
-impl Reducible for City {
-    const RADIUS_RANGE: Range<i64> = 100..500;
+    fn max_radius(_: &Self::Dependencies) -> i64 {
+        Self::RADIUS_RANGE.end
+    }
 
     fn radius(&self) -> i64 {
         self.size
@@ -67,14 +73,16 @@ impl Reducible for City {
 #[derive(Clone, PartialEq, Default)]
 struct Intersection(Point2d);
 
-impl From<Point2d> for Intersection {
-    fn from(value: Point2d) -> Self {
-        Self(value)
-    }
-}
-
 impl Reducible for Intersection {
-    const RADIUS_RANGE: Range<i64> = 50..51;
+    type Dependencies = ();
+
+    fn try_new(center: Point2d, _: &Self::Dependencies) -> Option<Self> {
+        Some(Self(center))
+    }
+
+    fn max_radius(_: &Self::Dependencies) -> i64 {
+        50
+    }
 
     fn radius(&self) -> i64 {
         15
@@ -122,7 +130,7 @@ impl Chunk for ReducedLocations {
             .map(|p| p.0)
             .collect();
         if cities
-            .get_range(Bounds::point(center).pad(Point2d::splat(City::RADIUS_RANGE.end)))
+            .get_range(Bounds::point(center).pad(Point2d::splat(City::max_radius(&cities.1))))
             .all(|cities| {
                 cities
                     .points
@@ -149,7 +157,7 @@ impl Chunk for ReducedLocations {
         }: &Self::Dependencies,
         index: GridPoint<Self>,
     ) {
-        cities.clear(Self::bounds(index).pad(Point2d::splat(City::RADIUS_RANGE.end)));
+        cities.clear(Self::bounds(index).pad(Point2d::splat(City::max_radius(&cities.1))));
         intersections.clear(Self::bounds(index));
     }
 }

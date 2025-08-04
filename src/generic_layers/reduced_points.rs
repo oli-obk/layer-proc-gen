@@ -1,9 +1,9 @@
-use std::{ops::Range, sync::Arc};
+use std::sync::Arc;
 
 use arrayvec::ArrayVec;
 
 use crate::{
-    Chunk, ChunkExt as _, Layer,
+    Chunk, ChunkExt as _, Dependencies, Layer,
     debug::{Debug, DebugContent},
     rolling_grid::GridPoint,
     vec2::{Bounds, Point2d},
@@ -12,16 +12,27 @@ use crate::{
 use super::UniformPoint;
 
 /// Represents point like types that do not want to be close to other types.
-/// The larger of two objects is kept if they are too close to each other.
-/// If both objects have the same radius, the one with the higher X coordinate is kept (or higher Y if X is also the same).
-pub trait Reducible: From<Point2d> + PartialEq + Clone + Sized + 'static {
-    /// The range of radii that `radius` can return.
-    const RADIUS_RANGE: Range<i64>;
+/// The highest [priority][`Reducible::priority`] (largest radius, by default) of two objects is kept if they are too close to each other.
+/// If both objects have the same priority, the one with the higher X coordinate is kept (or higher Y if X is also the same).
+pub trait Reducible: PartialEq + Clone + Sized + 'static {
+    /// The type that will be passed into [`Reducible::try_new`] as context when creating an instance of this type.
+    type Dependencies: Dependencies;
 
+    /// Attempt to create an instance of this type at the given point.
+    /// If [`None`] is returned, the point will be skipped.
+    fn try_new(center: Point2d, deps: &Self::Dependencies) -> Option<Self>;
+    /// The maximum radius that things of this type can be, with the given context.
+    ///
+    /// Used to scan for overlap, OK to overestimate but the larger it is the more chunks need to be scanned.
+    fn max_radius(deps: &Self::Dependencies) -> i64;
     /// The radius around the thing to be kept free from other things.
     fn radius(&self) -> i64;
     /// Center position of the circle to keep free of other things.
     fn position(&self) -> Point2d;
+    /// The priority of the thing, used to determine the "winner" when there's overlap.
+    fn priority(&self) -> i64 {
+        self.radius()
+    }
     /// Debug representation. Usually contains just a single thing, the item itself,
     /// but can be overriden to emit addition information.
     fn debug(&self, _bounds: Bounds) -> Vec<DebugContent> {
@@ -53,20 +64,21 @@ impl<P: Reducible, const SIZE: u8, const SALT: u64> Chunk for ReducedUniformPoin
     const SIZE: Point2d<u8> = Point2d::splat(SIZE);
 
     fn compute(raw_points: &Self::Dependencies, index: GridPoint<Self>) -> Self {
+        let max_radius = P::max_radius(&raw_points.1);
         let mut points = ArrayVec::new();
         'points: for p in raw_points.get(index.into_same_chunk_size()).points {
-            for other in raw_points.get_range(
-                Bounds::point(p.position()).pad(Point2d::splat(p.radius() + P::RADIUS_RANGE.end)),
-            ) {
+            for other in raw_points
+                .get_range(Bounds::point(p.position()).pad(Point2d::splat(p.radius() + max_radius)))
+            {
                 for other in other.points {
                     if other == p {
                         continue;
                     }
 
-                    // prefer to delete lower radius, then lower x, then lower y
+                    // prefer to delete lower priority, then lower x, then lower y
                     let lower_priority = p
-                        .radius()
-                        .cmp(&other.radius())
+                        .priority()
+                        .cmp(&other.priority())
                         .then_with(|| p.position().cmp(&other.position()))
                         .is_lt();
 

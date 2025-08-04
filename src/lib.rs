@@ -101,6 +101,12 @@ impl Dependencies for Seed {
     }
 }
 
+impl<D: Dependencies> Dependencies for (Seed, D) {
+    fn debug(&self) -> Vec<&dyn DynLayer> {
+        self.1.debug()
+    }
+}
+
 /// The entry point to access the chunks of a layer.
 ///
 /// It exposes various convenience accessors, like iterating over areas in
